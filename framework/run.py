@@ -179,14 +179,18 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+	# Collect all arguments
 	parser = build_parser()
 	args = parser.parse_args()
+
 
 	sniper = Path(args.sniper).expanduser().resolve()
 	if not sniper.exists():
 		parser.error(f"run-sniper not found: {sniper}")
 
-	forwarded: list[str] = [str(sniper), "-n", str(args.cores), "-d", str(Path(args.outputdir).expanduser())]
+    # Make our own config arguments to pass to Sniper, and add the defaults if they are not overridden.
+	# Make the command
+	forwarded: list[str] = [str(sniper), "-n", str(args.cores), "-d", str(Path(args.outputdir).expanduser()), "--power"]
 	add_cfg_arg(forwarded, "general/total_cores", args.cores)
 	add_cfg_arg_if_changed(forwarded, "perf_model/core/core_model", args.core_model, DEFAULT_CORE_MODEL)
 	add_cfg_arg_if_changed(forwarded, "perf_model/core/type", args.core_type, DEFAULT_CORE_TYPE)
