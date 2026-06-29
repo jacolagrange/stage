@@ -5,52 +5,50 @@
              '/home/jaco/school/stage/output',
              '--power',
              '-c',
-             'general/total_cores=1',
-             '-c',
-             'perf_model/l3_cache/cache_size=256',
-             '-c',
-             'gainestown',
+             '/home/jaco/school/stage/output/framework.cfg',
              '/bin/echo',
              'hello'],
  'git_revision': '0d5c4576478852aed95e9c191a8a76312546c349',
  'host': 'my-laptop',
  'pin_version': 'unknown',
- 'rusage': (1.392666,
-            0.141952,
-            137384,
+ 'rusage': (1.111861,
+            0.102809,
+            138064,
             0,
             0,
             0,
-            19723,
+            19926,
             0,
             0,
             0,
-            144,
+            216,
             0,
             0,
             0,
-            13219,
-            24),
+            12966,
+            70),
  'snipercmd': ['bash',
                '-c',
                '/home/jaco/school/stage/snipersim/lib/sniper -c '
                '/home/jaco/school/stage/snipersim/config/base.cfg '
                '--general/total_cores=1 '
                '--general/output_dir=/home/jaco/school/stage/output '
+               '--config=/home/jaco/school/stage/snipersim/config/base.cfg '
                '--config=/home/jaco/school/stage/snipersim/config/nehalem.cfg '
                '--config=/home/jaco/school/stage/snipersim/config/gainestown.cfg '
-               '--general/total_cores=1 --perf_model/l3_cache/cache_size=256 '
-               '-g --traceinput/stop_with_first_app=true -g '
+               '--config=/home/jaco/school/stage/snipersim/config/rob.cfg '
+               '--config=/home/jaco/school/stage/output/framework.cfg -g '
+               '--traceinput/stop_with_first_app=true -g '
                '--traceinput/restart_apps=false -g '
                '--traceinput/stop_with_first_app=false -g '
                '--traceinput/enabled=true -g '
                '--traceinput/emulate_syscalls=true -g --traceinput/num_apps=1 '
-               '-g --traceinput/trace_prefix=/tmp/tmpmlju9tqc/run_benchmarks'],
- 't_elapsed': 7.083591938018799,
- 't_start': 1782722958.150573,
+               '-g --traceinput/trace_prefix=/tmp/tmp_2uizl2b/run_benchmarks'],
+ 't_elapsed': 5.479641437530518,
+ 't_start': 1782724111.4208808,
  'tracecmds': [['/home/jaco/school/stage/snipersim/record-trace',
                 '-o',
-                '/tmp/tmpmlju9tqc/run_benchmarks',
+                '/tmp/tmp_2uizl2b/run_benchmarks',
                 '-e',
                 '1',
                 '-s',
@@ -63,4 +61,4 @@
                 '/bin/echo',
                 'hello']],
  'user': 'jaco',
- 'vmem': 377507840}
+ 'vmem': 377475072}
