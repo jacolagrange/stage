@@ -1,0 +1,65 @@
+{'cmdline': ['/home/jaco/school/stage/snipersim/run-sniper',
+             '-n',
+             '1',
+             '-d',
+             '/home/jaco/school/stage/output',
+             '-c',
+             'general/total_cores=1',
+             '-c',
+             'perf_model/l2_cache/cache_size=1024',
+             '-c',
+             'gainestown',
+             '/bin/echo',
+             'hello'],
+ 'git_revision': '0d5c4576478852aed95e9c191a8a76312546c349',
+ 'host': 'my-laptop',
+ 'pin_version': 'unknown',
+ 'rusage': (1.7041330000000001,
+            0.18531899999999998,
+            146592,
+            0,
+            0,
+            0,
+            22088,
+            0,
+            0,
+            0,
+            192,
+            0,
+            0,
+            0,
+            12964,
+            67),
+ 'snipercmd': ['bash',
+               '-c',
+               '/home/jaco/school/stage/snipersim/lib/sniper -c '
+               '/home/jaco/school/stage/snipersim/config/base.cfg '
+               '--general/total_cores=1 '
+               '--general/output_dir=/home/jaco/school/stage/output '
+               '--config=/home/jaco/school/stage/snipersim/config/nehalem.cfg '
+               '--config=/home/jaco/school/stage/snipersim/config/gainestown.cfg '
+               '--general/total_cores=1 --perf_model/l2_cache/cache_size=1024 '
+               '-g --traceinput/stop_with_first_app=true -g '
+               '--traceinput/restart_apps=false -g '
+               '--traceinput/stop_with_first_app=false -g '
+               '--traceinput/enabled=true -g '
+               '--traceinput/emulate_syscalls=true -g --traceinput/num_apps=1 '
+               '-g --traceinput/trace_prefix=/tmp/tmpwgh4uahd/run_benchmarks'],
+ 't_elapsed': 8.018075227737427,
+ 't_start': 1782721504.487266,
+ 'tracecmds': [['/home/jaco/school/stage/snipersim/record-trace',
+                '-o',
+                '/tmp/tmpwgh4uahd/run_benchmarks',
+                '-e',
+                '1',
+                '-s',
+                '0',
+                '-r',
+                '1',
+                '--follow',
+                '--routine-tracing',
+                '--',
+                '/bin/echo',
+                'hello']],
+ 'user': 'jaco',
+ 'vmem': 377507840}
