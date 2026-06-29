@@ -32,27 +32,18 @@ DEFAULT_BRANCH_PREDICTOR_SIZE = 1024
 # Alpha controls the area/power trade-off in the ASI formula
 DEFAULT_ALPHA = 0.5
 
-# Search space: each entry is a dict of keyword overrides for build_runtime_config.
-# Add or remove candidates here to expand/shrink the exploration.
-SEARCH_SPACE: list[dict[str, Any]] = [
-    {},  # baseline itself (will be skipped during search, but useful for reference)
-    {"l1i_size": 64},
-    {"l1i_size": 16},
-    {"l1d_size": 64},
-    {"l1d_size": 16},
-    {"l2_size": 512},
-    {"l2_size": 128},
-    {"l3_size": 4096},
-    {"l3_size": 2048},
-    {"l3_size": 1024},
-    {"branch_predictor_size": 2048},
-    {"branch_predictor_size": 512},
-    {"frequency": 3.2},
-    {"frequency": 2.0},
-    {"l1i_size": 64, "l1d_size": 64},
-    {"l2_size": 512, "l3_size": 4096},
-    {"frequency": 3.2, "l3_size": 4096},
-]
+# Search space: for each parameter, the candidate values to try.
+PARAM_SPACE: dict[str, list[Any]] = {
+    "l1i_size":                 [16, 32, 64],
+    "l1d_size":                 [16, 32, 64],
+    "l2_size":                  [128, 256, 512],
+    "l3_size":                  [1024, 2048, 4096, 8192],
+    "l1i_assoc":                [4, 8],
+    "l1d_assoc":                [4, 8],
+    "l2_assoc":                 [4, 8],
+    "l3_assoc":                 [8, 16],
+    "branch_predictor_size":    [512, 1024, 2048],
+}
 
 
 @dataclass
@@ -64,7 +55,8 @@ class DesignPoint:
     time: float                     # ns
     asi: float = 0.0                # computed after baseline is known
     speedup: float = 0.0            # computed after baseline is known
-    on_pareto_front: bool = False
+    modified_params: set[str] = field(default_factory=set)
+
 
 
 # y: the reference design
@@ -81,14 +73,13 @@ def dominates(a: DesignPoint, b: DesignPoint) -> bool:
     )
 
 
-def pareto_front(points: list[DesignPoint]) -> list[DesignPoint]:
-    """Return the subset of points that are not dominated by any other point."""
-    front = []
-    for candidate in points:
-        if not any(dominates(other, candidate) for other in points if other is not candidate):
-            candidate.on_pareto_front = True
-            front.append(candidate)
-    return front
+def update_pareto_front(front: list[DesignPoint], points: list[DesignPoint]) -> list[DesignPoint]:
+    """Recompute the Pareto front from front + candidates combined."""
+    all_points = front + points
+    return [
+        p for p in all_points
+        if not any(dominates(other, p) for other in all_points if other is not p)
+    ]
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -224,21 +215,231 @@ def run(config: str, sniper: Path, outputdir: Path, cmd: list[str]) -> tuple[flo
 
     return area, peak_power, time
 
+@dataclass
+class DesignPoint:
+    """One evaluated design point."""
+    params: dict[str, Any]      # overrides from baseline, e.g. {"l3_size": 4096}
+    area: float                 # mm^2
+    peak_power: float           # W
+    time: float                 # ns
+    asi: float = 0.0
+    speedup: float = 0.0
+    # which parameters have already been modified (not to be varied again in children)
+    modified_params: set[str] = field(default_factory=set)
 
-def evaluate(
+
+# Search space: for each parameter, the candidate values to try.
+PARAM_SPACE: dict[str, list[Any]] = {
+    "l1i_size":                 [16, 32, 64],
+    "l1d_size":                 [16, 32, 64],
+    "l2_size":                  [128, 256, 512],
+    #"l3_size":                  [1024, 2048, 4096, 8192],
+    #"l1i_assoc":                [4, 8],
+    #"l1d_assoc":                [4, 8],
+    #"l2_assoc":                 [4, 8],
+    #"l3_assoc":                 [8, 16],
+    #"branch_predictor_size":    [512, 1024, 2048],
+}
+
+
+def dominates(a: DesignPoint, b: DesignPoint) -> bool:
+    """Return True if a dominates b (better or equal on both objectives,
+    strictly better on at least one)."""
+    return (
+        a.asi >= b.asi and a.speedup >= b.speedup
+        and (a.asi > b.asi or a.speedup > b.speedup)
+    )
+
+
+def update_pareto_front(
+    front: list[DesignPoint],
+    candidates: list[DesignPoint],
+) -> list[DesignPoint]:
+    """Recompute the Pareto front from front + candidates combined."""
+    all_points = front + candidates
+    return [
+        p for p in all_points
+        if not any(dominates(other, p) for other in all_points if other is not p)
+    ]
+
+
+def params_key(params: dict[str, Any]) -> frozenset:
+    """Hashable representation of a config for deduplication."""
+    return frozenset(params.items())
+
+
+def evaluate_point(
     params: dict[str, Any],
+    modified_params: set[str],
     label: str,
     reference_config: str,
     sniper: Path,
     outputdir: Path,
     cmd: list[str],
-) -> DesignPoint:
-    """Write config, run Sniper, return an unevaluated DesignPoint (asi/speedup set later)."""
+    baseline: DesignPoint,
+    alpha: float,
+) -> DesignPoint | None:
+    """Write config, run Sniper, compute ASI and speedup, return DesignPoint."""
     cfg_path = outputdir / f"{label}.cfg"
     cfg_path.write_text(build_runtime_config(reference_config, **params), encoding="utf-8")
-    area, peak_power, time = run(str(cfg_path), sniper, outputdir, cmd)
-    return DesignPoint(params=params, area=area, peak_power=peak_power, time=time)
+    try:
+        area, peak_power, time = run(str(cfg_path), sniper, outputdir, cmd)
+    except Exception as exc:
+        print(f"  FAILED ({label}): {exc}")
+        return None
 
+    point = DesignPoint(
+        params=params,
+        area=area,
+        peak_power=peak_power,
+        time=time,
+        modified_params=modified_params,
+    )
+    point.asi = calculate_asi(
+        Ay=baseline.area,
+        Ax=point.area,
+        Py=baseline.peak_power,
+        Px=point.peak_power,
+        alpha=alpha,
+    )
+    point.speedup = baseline.time / point.time
+    return point
+
+def explore_pareto_front(
+    reference_config: str,
+    sniper: Path,
+    outputdir: Path,
+    cmd: list[str],
+    alpha: float = DEFAULT_ALPHA,
+    max_iterations: int = 3,
+) -> list[DesignPoint]:
+    """
+    Iterative one-parameter-at-a-time exploration as described in Section V-B
+    of the ASI paper.
+
+    Three sets are maintained:
+      - pareto_set:    current Pareto-optimal points
+      - search_set:    configs pending evaluation this iteration
+      - discarded_set: all evaluated non-Pareto configs (for deduplication)
+
+    Returns the final Pareto front as a list of DesignPoints.
+    """
+    # 0. Evaluate baseline
+    print("Running baseline...")
+    baseline_cfg = outputdir / "baseline.cfg"
+    baseline_cfg.write_text(build_runtime_config(reference_config), encoding="utf-8")
+    try:
+        area, peak_power, time = run(str(baseline_cfg), sniper, outputdir, cmd)
+    except Exception as exc:
+        raise RuntimeError(f"Baseline run failed: {exc}") from exc
+
+    baseline = DesignPoint(
+        params={},
+        area=area,
+        peak_power=peak_power,
+        time=time,
+        asi=1.0,
+        speedup=1.0,
+        modified_params=set(),
+    )
+    print(f"  Area={baseline.area:.4f} mm^2  "
+          f"PeakPower={baseline.peak_power:.4f} W  "
+          f"Time={baseline.time:.2f} ns")
+
+    # 1. Initialise sets
+    pareto_set: list[DesignPoint] = [baseline]
+    discarded_set: set[frozenset] = set()
+    # newly_added tracks which points were just added to pareto_set and should
+    # generate children in the next iteration (starts as just the baseline)
+    newly_added: list[DesignPoint] = [baseline]
+
+    run_counter = 0
+
+    for iteration in range(max_iterations):
+        print(f"\n=== Iteration {iteration} ===")
+
+        # 2. Generate search_set from newly added Pareto points
+        search_set: list[tuple[dict[str, Any], set[str]]] = []  # (params, modified)
+
+        for parent in newly_added:
+            for param, values in PARAM_SPACE.items():
+                # Only vary parameters not already modified in this lineage
+                if param in parent.modified_params:
+                    continue
+                for value in values:
+                    # Skip the default value for this param (no change)
+                    default_value = {
+                        "l1i_size": DEFAULT_L1I_SIZE,
+                        "l1d_size": DEFAULT_L1D_SIZE,
+                        "l2_size":  DEFAULT_L2_SIZE,
+                        "l3_size":  DEFAULT_L3_SIZE,
+                        "l1i_assoc": DEFAULT_L1I_ASSOC,
+                        "l1d_assoc": DEFAULT_L1D_ASSOC,
+                        "l2_assoc":  DEFAULT_L2_ASSOC,
+                        "l3_assoc":  DEFAULT_L3_ASSOC,
+                        "branch_predictor_size": DEFAULT_BRANCH_PREDICTOR_SIZE,
+                    }.get(param)
+                    if value == default_value and param not in parent.params:
+                        continue  # this would be identical to the parent
+
+                    child_params = {**parent.params, param: value}
+                    child_modified = parent.modified_params | {param}
+                    key = params_key(child_params)
+
+                    # Skip if already evaluated (in Pareto or discarded)
+                    already_in_pareto = any(
+                        params_key(p.params) == key for p in pareto_set
+                    )
+                    if key in discarded_set or already_in_pareto:
+                        continue
+
+                    search_set.append((child_params, child_modified))
+
+        if not search_set:
+            print("  Search set is empty — converged.")
+            break
+
+        # 3. Evaluate search_set
+        evaluated: list[DesignPoint] = []
+        for i, (params, modified) in enumerate(search_set):
+            label = f"iter{iteration}_run{i}"
+            print(f"  {label}: {params}")
+            point = evaluate_point(
+                params=params,
+                modified_params=modified,
+                label=label,
+                reference_config=reference_config,
+                sniper=sniper,
+                outputdir=outputdir,
+                cmd=cmd,
+                baseline=baseline,
+                alpha=alpha,
+            )
+            if point is not None:
+                run_counter += 1
+                print(f"    ASI={point.asi:.4f}  Speedup={point.speedup:.4f}  "
+                      f"Area={point.area:.4f}  PeakPower={point.peak_power:.4f}")
+                evaluated.append(point)
+
+        # 4. Update Pareto front
+        new_pareto = update_pareto_front(pareto_set, evaluated)
+
+        # Determine which points are newly on the front
+        old_keys = {params_key(p.params) for p in pareto_set}
+        newly_added = [p for p in new_pareto if params_key(p.params) not in old_keys]
+
+        # Everything evaluated but not on the new front goes to discarded
+        new_pareto_keys = {params_key(p.params) for p in new_pareto}
+        for p in evaluated:
+            if params_key(p.params) not in new_pareto_keys:
+                discarded_set.add(params_key(p.params))
+
+        pareto_set = new_pareto
+        print(f"  Pareto front size: {len(pareto_set)}  "
+              f"({len(newly_added)} new points added)")
+
+    print(f"\nExploration complete. Total Sniper runs: {run_counter + 1} (including baseline)")
+    return pareto_set
 
 def main() -> int:
     parser = build_parser()
@@ -251,51 +452,20 @@ def main() -> int:
     outputdir = Path(args.outputdir).expanduser().resolve()
     outputdir.mkdir(parents=True, exist_ok=True)
 
-    # 1. Run baseline
-    print("Running baseline...")
-    baseline = evaluate({}, "baseline", args.config, sniper, outputdir, args.cmd)
-    baseline.asi = 1.0      # by definition
-    baseline.speedup = 1.0
-    print(f"  Area={baseline.area:.4f} mm^2  PeakPower={baseline.peak_power:.4f} W  Time={baseline.time:.2f} ns")
+    front = explore_pareto_front(
+        reference_config=args.config,
+        sniper=sniper,
+        outputdir=outputdir,
+        cmd=args.cmd,
+        alpha=args.alpha,
+        max_iterations=10,
+    )
 
-    # 2. Evaluate all candidate designs
-    all_points: list[DesignPoint] = [baseline]
-
-    for i, params in enumerate(SEARCH_SPACE):
-        if not params:
-            continue  # skip the empty-dict entry (that's the baseline)
-
-        label = f"design_{i}"
-        print(f"Running {label}: {params}")
-        try:
-            point = evaluate(params, label, args.config, sniper, outputdir, args.cmd)
-        except Exception as exc:
-            print(f"  FAILED: {exc}")
-            continue
-
-        # ASI: higher is better (more performance per area*power)
-        point.asi = calculate_asi(
-            Ay=baseline.area,
-            Ax=point.area,
-            Py=baseline.peak_power,
-            Px=point.peak_power,
-            alpha=args.alpha,
-        )
-        # Speedup: higher is better (lower time = faster)
-        point.speedup = baseline.time / point.time
-
-        print(f"  Area={point.area:.4f}  PeakPower={point.peak_power:.4f}  "
-              f"Time={point.time:.2f}  ASI={point.asi:.4f}  Speedup={point.speedup:.4f}")
-        all_points.append(point)
-
-    # 3. Build Pareto front
-    front = pareto_front(all_points)
-
-    print("\n=== Pareto Front ===")
-    print(f"{'Params':<45} {'ASI':>8} {'Speedup':>10} {'Area':>10} {'PeakPow':>10}")
-    print("-" * 90)
-    for p in sorted(front, key=lambda x: x.asi, reverse=True):
-        print(f"{str(p.params):<45} {p.asi:>8.4f} {p.speedup:>10.4f} "
+    print("\n=== Final Pareto Front ===")
+    print(f"{'Params':<55} {'ASI':>8} {'Speedup':>10} {'Area':>10} {'PeakPow':>10}")
+    print("-" * 100)
+    for p in sorted(front, key=lambda x: x.speedup):
+        print(f"{str(p.params):<55} {p.asi:>8.4f} {p.speedup:>10.4f} "
               f"{p.area:>10.4f} {p.peak_power:>10.4f}")
 
     return 0
