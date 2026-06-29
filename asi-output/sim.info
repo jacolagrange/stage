@@ -3,19 +3,19 @@
              '/home/jaco/school/stage/asi-output',
              '--power',
              '-c',
-             '/home/jaco/school/stage/asi-output/design_16.cfg',
+             '/home/jaco/school/stage/asi-output/iter2_run9.cfg',
              '/bin/echo',
              'hello'],
  'git_revision': '0d5c4576478852aed95e9c191a8a76312546c349',
  'host': 'my-laptop',
  'pin_version': 'unknown',
- 'rusage': (0.9924529999999999,
-            0.072032,
-            141692,
+ 'rusage': (1.293677,
+            0.094659,
+            145876,
             0,
             0,
             0,
-            20783,
+            21864,
             0,
             0,
             0,
@@ -23,8 +23,8 @@
             0,
             0,
             0,
-            12791,
-            25),
+            12733,
+            93),
  'snipercmd': ['bash',
                '-c',
                '/home/jaco/school/stage/snipersim/lib/sniper -c '
@@ -35,18 +35,18 @@
                '--config=/home/jaco/school/stage/snipersim/config/nehalem.cfg '
                '--config=/home/jaco/school/stage/snipersim/config/gainestown.cfg '
                '--config=/home/jaco/school/stage/snipersim/config/rob.cfg '
-               '--config=/home/jaco/school/stage/asi-output/design_16.cfg -g '
+               '--config=/home/jaco/school/stage/asi-output/iter2_run9.cfg -g '
                '--traceinput/stop_with_first_app=true -g '
                '--traceinput/restart_apps=false -g '
                '--traceinput/stop_with_first_app=false -g '
                '--traceinput/enabled=true -g '
                '--traceinput/emulate_syscalls=true -g --traceinput/num_apps=1 '
-               '-g --traceinput/trace_prefix=/tmp/tmp4xt3e54i/run_benchmarks'],
- 't_elapsed': 5.103031635284424,
- 't_start': 1782738153.2796104,
+               '-g --traceinput/trace_prefix=/tmp/tmpjvg175tl/run_benchmarks'],
+ 't_elapsed': 5.9181342124938965,
+ 't_start': 1782742048.411547,
  'tracecmds': [['/home/jaco/school/stage/snipersim/record-trace',
                 '-o',
-                '/tmp/tmp4xt3e54i/run_benchmarks',
+                '/tmp/tmpjvg175tl/run_benchmarks',
                 '-e',
                 '1',
                 '-s',
@@ -59,4 +59,4 @@
                 '/bin/echo',
                 'hello']],
  'user': 'jaco',
- 'vmem': 377507840}
+ 'vmem': 377487360}
