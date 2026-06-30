@@ -18,6 +18,7 @@ calls the local name `run` directly.
 
 from __future__ import annotations
 
+import math
 import random
 import re
 import sys
@@ -28,25 +29,59 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from asi_framework import search as search_module
 from asi_framework import config as cfg
 
+from asi_framework import plot as plt
 
 # ---------------------------------------------------------------------------
-# Ground truth: which parameters we pretend actually affect area/power, and
-# by how much. Anything not listed here has ~no effect (just noise).
+# Ground truth landscape generator: instead of hand-picking which parameters
+# "matter", randomly decide it. This lets you stress-test the freeze/probation
+# logic against different landscapes just by changing the seed or knobs below.
 # ---------------------------------------------------------------------------
-TRUE_EFFECTS = {
-    "l1i_size":               (0.0, 0.0),     # no real effect -> should freeze
-    "l1d_size":               (0.0, 0.0),     # no real effect -> should freeze
-    "l2_size":                (0.0, 0.0),     # no real effect -> should freeze
-    "l3_size":                (0.0008, 0.0006),  # genuinely matters
-    "l1i_assoc":              (0.0, 0.0),
-    "l1d_assoc":              (0.0, 0.0),
-    "l2_assoc":               (0.0, 0.0),
-    "l3_assoc":               (0.003, 0.002), # genuinely matters
-    "branch_predictor_size":  (0.0, 0.0),
-    "rob_rs_entries":         (0.01, 0.015),  # genuinely matters
-    "rob_outstanding_loads":  (0.0, 0.0),
-    "rob_outstanding_stores": (0.0, 0.0),
+def generate_true_effects(
+    param_space: dict[str, list],
+    seed: int,
+    fraction_significant: float = 0.5,
+    min_coeff: float = 0.005,
+    max_coeff: float = 0.05,
+) -> dict[str, tuple[float, float]]:
+    """
+    For each parameter, randomly decide whether it has a real effect on
+    area/power (probability = fraction_significant). If it does, draw its
+    area/power coefficients log-uniformly between min_coeff and max_coeff
+    (so effect sizes span orders of magnitude, like a real design space
+    would). Everything else gets (0.0, 0.0) -- a true null.
+    """
+    rng = random.Random(seed)
+    effects: dict[str, tuple[float, float]] = {}
+    for param in param_space:
+        if rng.random() < fraction_significant:
+            # log-uniform draw so we get a mix of strong and weak real effects
+            log_min, log_max = math.log(min_coeff), math.log(max_coeff)
+            area_coeff = math.exp(rng.uniform(log_min, log_max))
+            power_coeff = math.exp(rng.uniform(log_min, log_max))
+            effects[param] = (area_coeff, power_coeff)
+        else:
+            effects[param] = (0.0, 0.0)
+    return effects
+
+
+TRUE_EFFECTS_SEED = 42  # change this to sample a different landscape
+
+TEST_PARAM_SPACE = {
+    "l1i_size":               [16, 32, 64],
+    "l1d_size":               [16, 32, 64],
+    "l2_size":                [128, 256, 512],
+    "l3_size":                [1024, 2048, 4096, 8192],
+    "l1i_assoc":              [4, 8],
+    "l1d_assoc":              [4, 8],
+    "l2_assoc":               [4, 8],
+    "l3_assoc":               [8, 16],
+    "branch_predictor_size":  [512, 1024, 2048],
+    "rob_rs_entries":         [16, 36, 64, 96],
+    "rob_outstanding_loads":  [16, 32, 48, 64],
+    "rob_outstanding_stores": [16, 32, 48, 64],
 }
+
+TRUE_EFFECTS = generate_true_effects(TEST_PARAM_SPACE, seed=TRUE_EFFECTS_SEED)
 
 NOISE_STD = 0.05  # simulation noise added to area/power, roughly matching threshold scale
 
@@ -141,11 +176,20 @@ def fake_run(config: str, sniper: Path, outputdir: Path, cmd: list[str]) -> tupl
 def main() -> None:
     random.seed(0)  # reproducible test run
 
+    print(f"=== Sampled ground-truth landscape (seed={TRUE_EFFECTS_SEED}) ===")
+    for param, (area_c, power_c) in TRUE_EFFECTS.items():
+        tag = "REAL EFFECT" if (area_c, power_c) != (0.0, 0.0) else "null"
+        print(f"  {param:<25} area_coeff={area_c:.5f}  power_coeff={power_c:.5f}  [{tag}]")
+    print()
+
     # Monkeypatch: replace the real run() with our synthetic one. We patch it
     # on the search module specifically, since that's where `run(...)` is
     # called from (search.py imports it via `from .runner import run`).
     search_module.run = fake_run
-    search_module.PARAM_SPACE = cfg.TEST_PARAM_SPACE
+
+    # Also override PARAM_SPACE so the test exercises every parameter, not
+    # just whichever ones happen to be active in asi_framework/config.py.
+    search_module.PARAM_SPACE = TEST_PARAM_SPACE
 
     outputdir = Path("/tmp/asi_test_output")
     outputdir.mkdir(parents=True, exist_ok=True)
@@ -168,6 +212,7 @@ def main() -> None:
 
     print("\nExpected: l3_size and rob_rs_entries stay active (real effect, if present in PARAM_SPACE);")
     print("everything else should get frozen within the first couple iterations.")
+    plt.plot_pareto_front_on_asi(front, title="Synthetic Test Pareto Front")
 
 
 if __name__ == "__main__":
