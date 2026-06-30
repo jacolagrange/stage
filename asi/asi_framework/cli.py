@@ -3,7 +3,7 @@ from pathlib import Path
 
 from .config import RUN_SNIPER, DEFAULT_OUTPUT_DIR, DEFAULT_ALPHA
 from .search import explore_pareto_front_with_sensitivity
-
+from .plot import plot_pareto_front_on_asi
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -45,5 +45,7 @@ def main() -> int:
     for p in sorted(front, key=lambda x: x.speedup):
         print(f"{str(p.params):<55} {p.asi:>8.4f} {p.speedup:>10.4f} "
               f"{p.area:>10.4f} {p.peak_power:>10.4f}")
+
+    plot_pareto_front_on_asi(front, title="Pareto Front")
 
     return 0

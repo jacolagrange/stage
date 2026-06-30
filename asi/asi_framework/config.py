@@ -1,9 +1,9 @@
 from pathlib import Path
 from typing import Any
  
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 RUN_SNIPER = ROOT / "snipersim" / "run-sniper"
-DEFAULT_OUTPUT_DIR = ROOT / "asi-output"
+DEFAULT_OUTPUT_DIR = ROOT / "asi" / "asi-output"
 DEFAULT_CORE_MODEL = "nehalem"
 DEFAULT_CORE_TYPE = "rob"
 DEFAULT_FREQUENCY = 2.66
@@ -36,9 +36,9 @@ DEFAULT_ALPHA = 0.5
 PARAM_SPACE: dict[str, list[Any]] = {
     "l1i_size":                 [16, 32, 64],
     "l1d_size":                 [16, 32, 64],
-    #"l2_size":                  [128, 256, 512],
-    #"l3_size":                  [1024, 2048, 4096, 8192],
-    #"l1i_assoc":                [4, 8],
+    "l2_size":                  [128, 256, 512],
+    "l3_size":                  [1024, 2048, 4096, 8192],
+    "l1i_assoc":                [4, 8],
     #"l1d_assoc":                [4, 8],
     #"l2_assoc":                 [4, 8],
     #"l3_assoc":                 [8, 16],
