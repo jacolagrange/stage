@@ -3,7 +3,7 @@ from typing import Any
 
 from .models import DesignPoint
 from .config_builder import build_runtime_config
-from .runner import run
+from .runner import run, run_test
 from .config import (
     PARAM_SPACE,
     DEFAULT_ALPHA,
@@ -21,8 +21,6 @@ from .config import (
     DEFAULT_ROB_OUTSTANDING_STORES,
 )
 
-from .runner import run
-
 
 # y: the reference design
 # x: the design under test
@@ -37,6 +35,7 @@ def dominates(a: DesignPoint, b: DesignPoint) -> bool:
         a.asi >= b.asi and a.speedup >= b.speedup
         and (a.asi > b.asi or a.speedup > b.speedup)
     )
+
 
 def params_key(params: dict[str, Any]) -> frozenset:
     """Hashable representation of a config for deduplication."""
@@ -58,7 +57,7 @@ def evaluate_point(
     cfg_path = outputdir / f"{label}.cfg"
     cfg_path.write_text(build_runtime_config(reference_config, **params), encoding="utf-8")
     try:
-        area, peak_power, time = run(str(cfg_path), sniper, outputdir, cmd)
+        area, peak_power, time = run_test(str(cfg_path), sniper, outputdir, cmd)
     except Exception as exc:
         print(f"  FAILED ({label}): {exc}")
         return None
@@ -89,7 +88,8 @@ def update_pareto_front(front: list[DesignPoint], points: list[DesignPoint]) -> 
         if not any(dominates(other, p) for other in all_points if other is not p)
     ]
 
-def explore_pareto_front_default(
+
+def explore_pareto_front(
     reference_config: str,
     sniper: Path,
     outputdir: Path,
@@ -225,6 +225,7 @@ def explore_pareto_front_default(
     print(f"\nExploration complete. Total Sniper runs: {run_counter + 1} (including baseline)")
     return pareto_set
 
+
 def explore_pareto_front_with_sensitivity(
     reference_config: str,
     sniper: Path,
@@ -283,7 +284,6 @@ def explore_pareto_front_with_sensitivity(
     SENSITIVITY_MIN_SAMPLES = 3   # need at least this many recent observations before judging
     SENSITIVITY_WINDOW = 3        # only look at the last N observations, not full history
     SENSITIVITY_THRESHOLD = 0.02  # ASI spread below this -> freeze (drop from future search)
-
 
     run_counter = 0
 
@@ -367,10 +367,10 @@ def explore_pareto_front_with_sensitivity(
             spread = max(asi_values) - min(asi_values)
             if spread < SENSITIVITY_THRESHOLD:
                 freeze_count[param] = freeze_count.get(param, 0) + 1
-                backoff = PROBATION_LENGTH * (2 ** (freeze_count[param] - 1)) # exponential backoff for repeated freezes
+                backoff = PROBATION_LENGTH * (2 ** (freeze_count[param] - 1))  # exponential backoff for repeated freezes
                 frozen_until[param] = iteration + backoff
                 print(f"  Freezing '{param}' until iteration {iteration + backoff} "
-                f"(freeze #{freeze_count[param]}, recent ASI spread {spread:.4f})")
+                      f"(freeze #{freeze_count[param]}, recent ASI spread {spread:.4f})")
 
         # 4. Update Pareto front
         new_pareto = update_pareto_front(pareto_set, evaluated)
