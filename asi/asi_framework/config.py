@@ -44,8 +44,8 @@ PARAM_SPACE: dict[str, list[Any]] = {
     "l3_assoc":                 [8, 16],
     "branch_predictor_size":    [512, 1024, 2048],
     "rob_rs_entries":           [16, 36, 64, 96],
-    "rob_outstanding_loads":    [16, 32, 48, 64],
-    "rob_outstanding_stores":   [16, 32, 48, 64],
+    #"rob_outstanding_loads":    [16, 32, 48, 64],
+    #"rob_outstanding_stores":   [16, 32, 48, 64],
 
 }
 
