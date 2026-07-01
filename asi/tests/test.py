@@ -152,9 +152,18 @@ def parse_cfg_values(cfg_path: str) -> dict[str, float]:
     return values
 
 
-def fake_run(config: str, sniper: Path, outputdir: Path, cmd: list[str]) -> tuple[float, float, float]:
+def fake_run(
+    reference_config: str,
+    sniper: Path,
+    outputdir: Path,
+    cmd: list[str],
+    design_knobs: dict | None = None,
+) -> tuple[float, float, float]:
     """Drop-in replacement for asi_framework.runner.run() that doesn't touch Sniper at all."""
-    cfg_values = parse_cfg_values(config)
+    if design_knobs is not None:
+        cfg_values = dict(design_knobs)
+    else:
+        cfg_values = parse_cfg_values(reference_config)
 
     area = BASE_AREA
     power = BASE_POWER

@@ -23,129 +23,123 @@ from .config import (
     DEFAULT_ROB_OUTSTANDING_LOADS,
     DEFAULT_ROB_OUTSTANDING_STORES,
 )
+from .config_builder import build_runtime_config
+
+TEST_BASE_AREA = 100.0
+TEST_BASE_POWER = 50.0
 
 # --- run_test: synthetic stand-in for run() -------------------------------
-#
-# run_test() never touches Sniper. Instead it reads back the knobs that
-# config_builder.build_runtime_config() wrote into the cfg file and maps
-# them onto a synthetic (area, peak_power, time) surface. The mapping is
-# built so that "bigger" configs (larger caches/associativity/ROB) trend
-# toward more area and power and less time, but with an added sinusoidal
-# term so the resulting ASI-vs-speedup surface has local bumps ("loss"
-# landscape) instead of being perfectly monotonic — closer to what a real
-# search over microarchitecture knobs would see, and useful for exercising
-# explore_pareto_front*() without paying for real Sniper runs.
-
-TEST_BASE_AREA = 31.6          # mm^2, roughly the baseline core area
-TEST_BASE_POWER = 17.5         # W, roughly the baseline peak power
-TEST_BASE_TIME = 664734.0      # ns, roughly the baseline runtime
-TEST_AREA_GAIN = 1.4           # how much area grows across the full param range
-TEST_POWER_GAIN = 1.1          # how much power grows across the full param range
-TEST_SPEEDUP_GAIN = 0.55       # how much time shrinks across the full param range
-TEST_LANDSCAPE_AMPLITUDE = 0.12  # size of the non-monotonic "bumps" in time
-TEST_LANDSCAPE_FREQ = 2.5       # spatial frequency of the bumps
-TEST_NOISE_STD = 0.01           # relative measurement-noise jitter
-TEST_MIN_TIME_FRACTION = 0.05   # floor on time, as a fraction of TEST_BASE_TIME
-
-# Knobs read back out of the cfg file, and where to find each one.
-_TEST_CFG_FIELDS: dict[str, tuple[str, str, float]] = {
-    "l1i_size": ("perf_model/l1_icache", "cache_size", DEFAULT_L1I_SIZE),
-    "l1i_assoc": ("perf_model/l1_icache", "associativity", DEFAULT_L1I_ASSOC),
-    "l1d_size": ("perf_model/l1_dcache", "cache_size", DEFAULT_L1D_SIZE),
-    "l1d_assoc": ("perf_model/l1_dcache", "associativity", DEFAULT_L1D_ASSOC),
-    "l2_size": ("perf_model/l2_cache", "cache_size", DEFAULT_L2_SIZE),
-    "l2_assoc": ("perf_model/l2_cache", "associativity", DEFAULT_L2_ASSOC),
-    "l3_size": ("perf_model/l3_cache", "cache_size", DEFAULT_L3_SIZE),
-    "l3_assoc": ("perf_model/l3_cache", "associativity", DEFAULT_L3_ASSOC),
-    "branch_predictor_size": ("perf_model/branch_predictor", "size", DEFAULT_BRANCH_PREDICTOR_SIZE),
-    "rob_rs_entries": ("perf_model/core/rob_timer", "rs_entries", DEFAULT_ROB_RS_ENTRIES),
-    "rob_outstanding_loads": ("perf_model/core/rob_timer", "outstanding_loads", DEFAULT_ROB_OUTSTANDING_LOADS),
-    "rob_outstanding_stores": ("perf_model/core/rob_timer", "outstanding_stores", DEFAULT_ROB_OUTSTANDING_STORES),
-}
-
-
-def _read_cfg_knobs(config: str) -> dict[str, float]:
-    """Parse the microarchitectural knobs out of a cfg file written by
-    build_runtime_config(), falling back to the config.py defaults for
-    anything missing (e.g. the rob_timer section on non-rob cores)."""
-    parser = configparser.ConfigParser()
-    parser.read(config, encoding="utf-8")
-
-    knobs: dict[str, float] = {}
-    for name, (section, key, default) in _TEST_CFG_FIELDS.items():
-        try:
-            knobs[name] = float(parser.get(section, key))
-        except (configparser.NoSectionError, configparser.NoOptionError, ValueError):
-            knobs[name] = float(default)
-    return knobs
-
-
-def _normalize_knobs(knobs: dict[str, float]) -> list[float]:
-    """Map each knob onto [0, 1] using its PARAM_SPACE range, so every
-    dimension contributes on a comparable scale regardless of its units."""
-    coords = []
-    for name, value in knobs.items():
-        values = PARAM_SPACE.get(name)
-        if not values:
-            coords.append(0.5)
-            continue
-        lo, hi = min(values), max(values)
-        coords.append(0.0 if hi == lo else (value - lo) / (hi - lo))
-    return coords
-
-
-def _deterministic_seed(knobs: dict[str, float]) -> int:
-    """A seed derived only from the knob values, so re-evaluating the same
-    design point reproduces the same synthetic measurement."""
-    key = ",".join(f"{name}={knobs[name]}" for name in sorted(knobs))
-    return int(hashlib.sha256(key.encode("utf-8")).hexdigest()[:16], 16)
-
-
-def run_test(config: str, sniper: Path, outputdir: Path, cmd: list[str]) -> tuple[float, float, float]:
-    """Drop-in replacement for run() that skips Sniper entirely.
-
-    Same signature and return value as run() — (area, peak_power, time) —
-    but the numbers come from a synthetic landscape derived from the knobs
-    in `config` instead of an actual simulation. `sniper`, `outputdir`, and
-    `cmd` are accepted for interface compatibility but are not used.
+def run_test(
+    reference_config: str,
+    sniper: Path,
+    outputdir: Path,
+    cmd: list[str],
+    design_knobs: dict = None
+) -> tuple[float, float, float]:
     """
-    knobs = _read_cfg_knobs(config)
-    coords = _normalize_knobs(knobs)
-    growth = sum(coords) / len(coords)
+    Synthetic cost surface with stochastic noise and parameter weighting.
+    Parameters with low weights will appear 'irrelevant' to the sensitivity logic.
+    """
+    knobs = design_knobs or {}
 
-    rng = random.Random(_deterministic_seed(knobs))
-    landscape = sum(
-        math.sin(TEST_LANDSCAPE_FREQ * math.pi * c + i)
-        for i, c in enumerate(coords)
-    ) / len(coords)
+    # Define 'Sensitivity Weights': how much each param affects the outcome
+    # l1i_assoc and l3_assoc are intentionally set to near-zero impact
+    weights = {
+        "l1i_size": 0.05, "l1d_size": 0.05,
+        "l2_size": 0.02,  "l3_size": 0.01,
+        "l1i_assoc": 0.0001, "l1d_assoc": 0.0002, 
+        "l2_assoc": 0.0002,  "l3_assoc": 0.0001,
+        "branch_predictor_size": 0.01,
+        "rob_rs_entries": 0.15,
+    }
 
-    area = TEST_BASE_AREA * (1 + TEST_AREA_GAIN * growth) * (1 + rng.gauss(0, TEST_NOISE_STD))
-    peak_power = TEST_BASE_POWER * (1 + TEST_POWER_GAIN * growth ** 1.15) * (1 + rng.gauss(0, TEST_NOISE_STD))
-    time = TEST_BASE_TIME * (1 - TEST_SPEEDUP_GAIN * growth + TEST_LANDSCAPE_AMPLITUDE * landscape)
-    time *= (1 + rng.gauss(0, TEST_NOISE_STD))
-    time = max(time, TEST_BASE_TIME * TEST_MIN_TIME_FRACTION)
+    # Base values
+    area = TEST_BASE_AREA
+    peak_power = TEST_BASE_POWER
+    time_val = 100.0
 
-    return area, peak_power, time
+    # Apply weighted impacts
+    for param, val in knobs.items():
+        w = weights.get(param, 0.01)
+        area += w * val
+        peak_power += (w * 0.4) * val
+        time_val -= (w * 5.0) * val
+
+    # Add stochastic noise (Simulating system variance)
+    # The sensitivity logic in search.py will see this variance as the "signal"
+    # for parameters with high weights, and as "insignificant jitter" for low weights.
+    area += random.gauss(0, 0.05)
+    peak_power += random.gauss(0, 0.02)
+    time_val += random.gauss(0, 0.5)
+
+    return max(1.0, area), max(0.1, peak_power), max(10.0, time_val)
 
 
-def run(config: str, sniper: Path, outputdir: Path, cmd: list[str]) -> tuple[float, float, float]:
-    forwarded: list[str] = [str(sniper), "-d", str(outputdir), "--power", "-c", config]
+# --- Real physical Sniper Simulation Runner ---------------------------------
+def run(
+    reference_config: str,
+    sniper: Path,
+    outputdir: Path,
+    cmd: list[str],
+    design_knobs: dict = None
+) -> tuple[float, float, float]:
+    """
+    Runs the actual physical Sniper simulator using command-line config overrides.
+    """
+    knobs = design_knobs or {}
+    outputdir = Path(outputdir)
+    outputdir.mkdir(parents=True, exist_ok=True)
 
-    if cmd[:1] == ["--"]:
-        forwarded.extend(cmd[1:])
-    else:
-        forwarded.extend(cmd)
+    # Extract or default the total number of cores
+    total_cores = knobs.get("cores", 1)
 
-    env = os.environ.copy()
-    env.setdefault("SNIPER_ROOT", str(ROOT / "snipersim"))
+    # 1. Generate CLI flags from the knobs dictionary
+    override_flags = build_runtime_config(reference_config, **knobs)
 
-    result = subprocess.run([sys.executable, *forwarded], env=env, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise RuntimeError(f"Sniper failed with code {result.returncode}: {result.stderr}")
+    # 2. Build execution arguments list, adding the explicit '-n' flag for core sizing
+    run_args = [
+        str(sniper), 
+        "-n", str(total_cores), 
+        "-c", str(reference_config), 
+        "-d", str(outputdir)
+    ] + override_flags + ["--"] + cmd
 
-    power_file = Path(outputdir) / "power.txt"
+    # 3. Execute process and capture output logs
+    try:
+        result = subprocess.run(
+            run_args, 
+            check=True, 
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.PIPE, 
+            text=True
+        )
+        stdout_log = result.stdout
+        stderr_log = result.stderr
+    except subprocess.CalledProcessError as err:
+        print("=== Sniper Execution STDOUT ===")
+        print(err.stdout)
+        print("=== Sniper Execution STDERR ===")
+        print(err.stderr)
+        raise RuntimeError(f"Sniper simulator process exited with error status: {err.returncode}")
+
+    # Helper function to print logs if parsing fails
+    def raise_with_logs(exception_class, message):
+        print("\n=== SNIPER RUN LOGS (STDOUT) ===")
+        print(stdout_log)
+        print("=== SNIPER RUN LOGS (STDERR) ===")
+        print(stderr_log)
+        raise exception_class(message)
+
+    # 4. Parse power metrics (McPAT output)
+    power_file = outputdir / "power.txt"
     if not power_file.exists():
-        raise FileNotFoundError(f"missing power report: {power_file}")
+        power_file = outputdir / "power" / "power.txt"
+        
+    if not power_file.exists():
+        raise_with_logs(
+            FileNotFoundError, 
+            f"McPAT power file summary (power.txt) not found in {outputdir} or its power/ subdirectory."
+        )
 
     area = None
     peak_power = None
@@ -165,24 +159,25 @@ def run(config: str, sniper: Path, outputdir: Path, cmd: list[str]) -> tuple[flo
             in_processor_section = True
 
     if area is None or peak_power is None:
-        raise ValueError(f"Could not extract Area or Peak Power from {power_file}")
+        raise_with_logs(ValueError, f"Could not extract Area or Peak Power metrics inside: {power_file}")
 
-    sniper_out = Path(outputdir) / "sim.out"
-    if not sniper_out.exists():
-        raise FileNotFoundError(f"missing sniper output: {sniper_out}")
+    # 5. Parse timing metrics (sim.out processing)
+    simout_file = outputdir / "sim.out"
+    if not simout_file.exists():
+        raise_with_logs(FileNotFoundError, f"missing sniper output trace: {simout_file}")
 
-    time = None
-    for raw_line in sniper_out.read_text(encoding="utf-8").splitlines():
+    time_val = None
+    for raw_line in simout_file.read_text(encoding="utf-8").splitlines():
         line = raw_line.strip()
         if line.startswith("Time (ns)"):
             time_str = line.split("|", 1)[1].strip()
             try:
-                time = float(time_str)
+                time_val = float(time_str)
             except ValueError:
-                raise ValueError(f"Could not parse Time value: {time_str}")
+                raise_with_logs(ValueError, f"Could not cleanly parse Time string numeric formatting: {time_str}")
             break
 
-    if time is None:
-        raise ValueError(f"Could not extract Time from {sniper_out}")
+    if time_val is None:
+        raise_with_logs(ValueError, f"Could not locate 'Time (ns)' signature string sequence inside {simout_file}")
 
-    return area, peak_power, time
+    return area, peak_power, time_val
