@@ -6,6 +6,8 @@ command-line configuration override flags.
 
 from typing import List, Optional
 
+from .config import DEFAULT_BRANCH_PREDICTOR_TYPE, DEFAULT_NUM_HISTORY_REGISTERS
+
 # Dict maps friendly design parameters used by the search algorithm
 # to the exact section/key paths expected within Sniper's configuration parser hierarchy.
 SNIPER_KNOB_MAP = {
@@ -20,7 +22,9 @@ SNIPER_KNOB_MAP = {
     "l2_assoc": "perf_model/l2_cache/associativity",
     "l3_size": "perf_model/l3_cache/cache_size",
     "l3_assoc": "perf_model/l3_cache/associativity",
+    "branch_predictor_type": "perf_model/branch_predictor/type",
     "branch_predictor_size": "perf_model/branch_predictor/size",
+    "num_history_registers": "perf_model/branch_predictor/num_history_registers",
 }
 
 # Sub-section mappings specifically dedicated to Out-of-Order Reorder Buffer (ROB) tuning
@@ -51,7 +55,9 @@ def build_runtime_config(
     l2_assoc: Optional[int] = None,
     l3_size: Optional[int] = None,
     l3_assoc: Optional[int] = None,
+    branch_predictor_type: Optional[str] = DEFAULT_BRANCH_PREDICTOR_TYPE,
     branch_predictor_size: Optional[int] = None,
+    num_history_registers: Optional[int] = DEFAULT_NUM_HISTORY_REGISTERS,
     rob_rs_entries: Optional[int] = None,
     rob_outstanding_loads: Optional[int] = None,
     rob_outstanding_stores: Optional[int] = None,
@@ -76,7 +82,9 @@ def build_runtime_config(
         "l2_assoc": l2_assoc,
         "l3_size": l3_size,
         "l3_assoc": l3_assoc,
+        "branch_predictor_type": branch_predictor_type,
         "branch_predictor_size": branch_predictor_size,
+        "num_history_registers": num_history_registers,
         "rob_rs_entries": rob_rs_entries,
         "rob_outstanding_loads": rob_outstanding_loads,
         "rob_outstanding_stores": rob_outstanding_stores,

@@ -26,10 +26,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from asi_framework import search as search_module
+from asi.asi_framework import greedy as search_module
 from asi_framework import config as cfg
 from asi_framework import plot as plt
-from asi_framework.search import fmt_params, sustainability_label, print_pareto_table
+from asi.asi_framework.greedy import fmt_params, sustainability_label, print_pareto_table
 
 # ---------------------------------------------------------------------------
 # Ground truth landscape generator: instead of hand-picking which parameters
@@ -205,7 +205,7 @@ def main() -> None:
         reference_config="dummy_reference.cfg",
         sniper=Path("/fake/run-sniper"),  # never actually used by fake_run
         outputdir=outputdir,
-        cmd=["--", "/bin/echo", "hi"],
+        benchmarks={"echo": ["--", "/bin/echo", "hi"]},
         alpha=cfg.DEFAULT_ALPHA,
         max_iterations=8,
     )
