@@ -4,7 +4,10 @@ from typing import Any, ClassVar
 
 from .models import DesignPoint
 from .runner import run
-from .config import PARAM_SPACE, DEFAULT_ALPHA, DEFAULTS
+from .config import (
+    PARAM_SPACE, DEFAULT_ALPHA, DEFAULTS, DEFAULT_BRANCH_PREDICTOR_TYPE,
+    BRANCH_PREDICTOR_PARAMS, CONDITIONAL_PARAMS, active_params,
+)
 from .state import (
     point_to_dict, point_from_dict, state_path, write_json_atomic, read_raw_state, cleanup_dirs,
 )
@@ -13,15 +16,27 @@ from .state import (
 _SHORT = {
     "l1i_size": "l1i", "l1d_size": "l1d", "l2_size": "l2", "l3_size": "l3",
     "l1i_assoc": "l1ia", "l1d_assoc": "l1da", "l2_assoc": "l2a", "l3_assoc": "l3a",
-    "branch_predictor_size": "bp", "rob_rs_entries": "rob",
+    "branch_predictor_type": "bpt", "branch_predictor_size": "bp",
+    "num_history_registers": "nhist", "nn_batch_length": "nnbl", "nn_learning_rate": "nnlr",
+    "rob_window_size": "robw", "rob_rs_entries": "rob", "rob_dispatch_width": "robd",
+    "rob_commit_width": "robc",
     "rob_outstanding_loads": "ld_out", "rob_outstanding_stores": "st_out",
 }
 
 
 def fmt_params(params: dict[str, Any]) -> str:
+    """Renders a point's (possibly sparse) params dict for terminal output.
+    Every other key is shown only when it deviates from its default (the
+    usual sparse-dict convention -- absent means "reference config's own
+    value"), but branch_predictor_type is always shown explicitly: which
+    predictor a point used is important enough to want visible at a glance
+    even on points that still use the a53 default, not just the ones where
+    the search actually varied it."""
     if not params:
         return "baseline"
-    return " ".join(f"{_SHORT.get(k, k)}={v}" for k, v in sorted(params.items()))
+    bp_type = params.get("branch_predictor_type", DEFAULTS.get("branch_predictor_type", DEFAULT_BRANCH_PREDICTOR_TYPE))
+    shown = {**params, "branch_predictor_type": bp_type}
+    return " ".join(f"{_SHORT.get(k, k)}={v}" for k, v in sorted(shown.items()))
 
 
 def sustainability_label(asi: float, speedup: float) -> str:
@@ -304,13 +319,24 @@ def explore_pareto_front_with_sensitivity(
         search_set: list[tuple] = []
         seen_keys: set[frozenset] = set()
         for parent in state.newly_added:
+            parent_bp_type = parent.params.get(
+                "branch_predictor_type", DEFAULTS.get("branch_predictor_type", DEFAULT_BRANCH_PREDICTOR_TYPE)
+            )
+            parent_active = active_params(PARAM_SPACE, parent_bp_type)
             for param, values in PARAM_SPACE.items():
+                if param not in parent_active:
+                    continue  # e.g. nn_learning_rate is meaningless while this parent's type is pentium_m
                 if param in parent.modified_params or state.frozen_until.get(param, -1) >= iteration:
                     continue
                 for value in values:
                     if value == parent.params.get(param, DEFAULTS[param]):
                         continue
                     child_params = {**parent.params, param: value}
+                    if param == "branch_predictor_type":
+                        # Switching type invalidates the old type's predictor-specific
+                        # knobs (never read once the type changes) -- drop the stale keys.
+                        for stale in CONDITIONAL_PARAMS - set(BRANCH_PREDICTOR_PARAMS.get(value, ())):
+                            child_params.pop(stale, None)
                     child_key = params_key(child_params)
                     if child_key in state.global_cache or child_key in seen_keys:
                         continue

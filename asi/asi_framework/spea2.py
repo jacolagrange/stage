@@ -23,7 +23,10 @@ from typing import Any, ClassVar
 
 from .models import DesignPoint
 from .runner import run
-from .config import PARAM_SPACE, DEFAULT_ALPHA, DEFAULTS
+from .config import (
+    PARAM_SPACE, DEFAULT_ALPHA, DEFAULTS, DEFAULT_BRANCH_PREDICTOR_TYPE,
+    BRANCH_PREDICTOR_PARAMS, CONDITIONAL_PARAMS, active_params,
+)
 from .greedy import (
     evaluate_point, dominates, update_pareto_front, print_pareto_table,
     print_evaluated_point, params_key,
@@ -39,29 +42,62 @@ from .state import (
 # ---------------------------------------------------------------------------
 
 def _random_entity(rng: random.Random) -> dict[str, Any]:
-    """A fully-specified configuration: one value per PARAM_SPACE parameter,
-    each drawn independently and uniformly from that parameter's candidates."""
-    return {param: rng.choice(values) for param, values in PARAM_SPACE.items()}
+    """A fully-specified configuration: one value per PARAM_SPACE parameter
+    that's relevant to the randomly chosen branch predictor type. Predictor-
+    specific knobs outside that type (e.g. nn_learning_rate when the type is
+    pentium_m) are never read by Sniper, so they're left out rather than
+    varied for no functional effect -- see BRANCH_PREDICTOR_PARAMS."""
+    entity = {
+        param: rng.choice(values)
+        for param, values in PARAM_SPACE.items()
+        if param not in CONDITIONAL_PARAMS
+    }
+    for param in BRANCH_PREDICTOR_PARAMS.get(entity["branch_predictor_type"], ()):
+        entity[param] = rng.choice(PARAM_SPACE[param])
+    return entity
 
 
 def _mutate(entity: dict[str, Any], rng: random.Random) -> dict[str, Any]:
-    """Randomly reassign a single parameter to one of its candidate values."""
+    """Randomly reassign a single parameter to one of its candidate values,
+    restricted to parameters relevant to the entity's current branch
+    predictor type (see active_params()). Mutating branch_predictor_type
+    itself drops the old type's now-irrelevant predictor-specific knobs and
+    draws fresh values for the new type's own knobs."""
     child = dict(entity)
-    param = rng.choice(list(PARAM_SPACE))
+    bp_type = entity.get("branch_predictor_type", DEFAULTS.get("branch_predictor_type", DEFAULT_BRANCH_PREDICTOR_TYPE))
+    param = rng.choice(sorted(active_params(PARAM_SPACE, bp_type)))
     child[param] = rng.choice(PARAM_SPACE[param])
+    if param == "branch_predictor_type":
+        for stale in CONDITIONAL_PARAMS - set(BRANCH_PREDICTOR_PARAMS.get(child[param], ())):
+            child.pop(stale, None)
+        for new_param in BRANCH_PREDICTOR_PARAMS.get(child[param], ()):
+            child[new_param] = rng.choice(PARAM_SPACE[new_param])
     return child
 
 
 def _crossover(a: dict[str, Any], b: dict[str, Any], rng: random.Random) -> dict[str, Any]:
-    """Uniform crossover: each parameter independently comes from parent a or b.
+    """Uniform crossover: each always-relevant parameter independently comes
+    from parent a or b, including branch_predictor_type itself. That type's
+    own predictor-specific knobs are then filled in from whichever parent(s)
+    actually used that type (uniformly, if both do), or drawn fresh if
+    neither parent did -- so e.g. crossing an "nn" parent with a "pentium_m"
+    parent never leaves a leftover/irrelevant learning_rate on a child that
+    ends up pentium_m.
     Parents may be "sparse" (e.g. the seeded baseline entity is {}, meaning
     "use the reference config's own value for every parameter") -- .get()
     with the DEFAULTS fallback treats a missing key the same way the rest of
-    the codebase does, and the child this produces is always fully dense."""
-    return {
+    the codebase does."""
+    child = {
         param: (a.get(param, DEFAULTS[param]) if rng.random() < 0.5 else b.get(param, DEFAULTS[param]))
-        for param in PARAM_SPACE
+        for param in PARAM_SPACE if param not in CONDITIONAL_PARAMS
     }
+    bp_type = child["branch_predictor_type"]
+    a_type = a.get("branch_predictor_type", DEFAULTS.get("branch_predictor_type", DEFAULT_BRANCH_PREDICTOR_TYPE))
+    b_type = b.get("branch_predictor_type", DEFAULTS.get("branch_predictor_type", DEFAULT_BRANCH_PREDICTOR_TYPE))
+    for param in BRANCH_PREDICTOR_PARAMS.get(bp_type, ()):
+        candidates = [d[param] for d, t in ((a, a_type), (b, b_type)) if t == bp_type and param in d]
+        child[param] = rng.choice(candidates) if candidates else rng.choice(PARAM_SPACE[param])
+    return child
 
 
 def _modified_params(params: dict[str, Any]) -> set[str]:
