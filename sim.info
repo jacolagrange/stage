@@ -1,52 +1,47 @@
-{'cmdline': ['/home/jaco/school/stage/snipersim/run-sniper',
-             '-d',
-             '/home/jaco/school/stage/asi-output',
+{'cmdline': ['./snipersim/run-sniper',
              '--power',
-             '-c',
-             '/home/jaco/school/stage/asi-output/iter1_run5.cfg',
-             '/bin/echo',
-             'hello'],
+             '--roi',
+             'asi/libs/benchmarks/CCa/bench'],
  'git_revision': '0d5c4576478852aed95e9c191a8a76312546c349',
  'host': 'my-laptop',
  'pin_version': 'unknown',
- 'rusage': (1.108046,
-            0.07721499999999999,
-            144052,
+ 'rusage': (0.339429,
+            0.036367,
+            124916,
             0,
             0,
             0,
-            21893,
+            17040,
             0,
             0,
             0,
-            224,
+            152,
             0,
             0,
             0,
-            12808,
-            32),
+            699,
+            8),
  'snipercmd': ['bash',
                '-c',
                '/home/jaco/school/stage/snipersim/lib/sniper -c '
                '/home/jaco/school/stage/snipersim/config/base.cfg '
                '--general/total_cores=1 '
-               '--general/output_dir=/home/jaco/school/stage/asi-output '
-               '--config=/home/jaco/school/stage/snipersim/config/base.cfg '
+               '--general/output_dir=/home/jaco/school/stage '
                '--config=/home/jaco/school/stage/snipersim/config/nehalem.cfg '
                '--config=/home/jaco/school/stage/snipersim/config/gainestown.cfg '
-               '--config=/home/jaco/school/stage/snipersim/config/rob.cfg '
-               '--config=/home/jaco/school/stage/asi-output/iter1_run5.cfg -g '
-               '--traceinput/stop_with_first_app=true -g '
-               '--traceinput/restart_apps=false -g '
+               '--config=/home/jaco/school/stage/snipersim/config/rob.cfg -g '
+               '--general/magic=true -g --traceinput/stop_with_first_app=true '
+               '-g --traceinput/restart_apps=false -g '
                '--traceinput/stop_with_first_app=false -g '
                '--traceinput/enabled=true -g '
                '--traceinput/emulate_syscalls=true -g --traceinput/num_apps=1 '
-               '-g --traceinput/trace_prefix=/tmp/tmprsrd1h4s/run_benchmarks'],
- 't_elapsed': 5.4979822635650635,
- 't_start': 1782808711.8858733,
+               '-g --traceinput/trace_prefix=/tmp/tmp0xqipsdj/run_benchmarks'],
+ 't_elapsed': 2.6899147033691406,
+ 't_start': 1782826855.8349462,
  'tracecmds': [['/home/jaco/school/stage/snipersim/record-trace',
                 '-o',
-                '/tmp/tmprsrd1h4s/run_benchmarks',
+                '/tmp/tmp0xqipsdj/run_benchmarks',
+                '--roi',
                 '-e',
                 '1',
                 '-s',
@@ -56,7 +51,6 @@
                 '--follow',
                 '--routine-tracing',
                 '--',
-                '/bin/echo',
-                'hello']],
+                'asi/libs/benchmarks/CCa/bench']],
  'user': 'jaco',
- 'vmem': 377475072}
+ 'vmem': 377507840}
