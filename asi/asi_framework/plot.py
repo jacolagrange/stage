@@ -1,53 +1,58 @@
+from pathlib import Path
+
 import numpy as np
 import matplotlib.pyplot as plt
 
-def plot_pareto_front_on_asi(front: list, title: str = "Pareto Front on ASI Regions"):
+from .models import DesignPoint
+
+
+def plot_pareto_front_on_asi(
+    front: list[DesignPoint],
+    title: str = "ASI Pareto Front",
+    save_path: Path | None = None,
+) -> None:
     """
-    Plots the ASI sustainability regions from Figure 1 / Table 1
-    and overlays the Pareto front design points on top.
+    Plot ASI sustainability regions (Fig. 1 of the paper) with Pareto front overlaid.
+    If save_path is given the figure is saved there before being shown.
     """
-    # 1. Generate the sustainability region boundaries
-    # We create a dense range of speedups to plot smooth boundary curves
-    S_range = np.linspace(0.2, 2.5, 500)
-    y_max_cond = np.maximum(1, 1 / S_range)  # Upper boundary: max(1, 1/S)
-    y_min_cond = np.minimum(1, 1 / S_range)  # Lower boundary: min(1, 1/S)
-
-    fig, ax = plt.subplots(figsize=(9, 7))
-    
-    # Set plot boundaries (adjust y_upper_limit if your points have higher ASI values)
-    y_upper_limit = 4.0
-    ax.set_xlim(0.2, 2.5)
-    ax.set_ylim(0, y_upper_limit)
-
-    # 2. Fill the regions (Table 1 logic)
-    # Region I: Strongly Sustainable (Green) -> Above max(1, 1/S)
-    ax.fill_between(S_range, y_max_cond, y_upper_limit, color='#d4edda', label='Region I: Strongly Sustainable')
-    # Region II: Unsustainable (Red) -> Below min(1, 1/S)
-    ax.fill_between(S_range, 0, y_min_cond, color='#f8d7da', label='Region II: Unsustainable')
-    # Region III: Weakly Sustainable (Yellow) -> Between the two curves
-    ax.fill_between(S_range, y_min_cond, y_max_cond, color='#fff3cd', label='Region III: Weakly Sustainable')
-
-    # Draw the boundary lines explicitly for clear visual cutoffs
-    ax.plot(S_range, y_max_cond, color='blue', linewidth=1.5, linestyle='--', alpha=0.7)
-    ax.plot(S_range, y_min_cond, color='green', linewidth=1.5, linestyle='--', alpha=0.7)
-
-    # Mark the baseline Reference configuration at (1,1)
-    ax.scatter(1, 1, color='black', s=100, zorder=5)
-    ax.text(1.05, 1.05, 'Ref (1,1)', fontsize=10, fontweight='bold', zorder=5)
-
-    # 3. Extract and plot your Pareto front data
     speedups = [p.speedup for p in front]
     asi_values = [p.asi for p in front]
 
-    # zorder=6 ensures your custom points sit completely on top of the background colors
-    ax.scatter(speedups, asi_values, color='purple', edgecolors='black', s=80, zorder=6, label='Pareto Front Designs')
+    x_min = max(0.1, min(speedups) * 0.85)
+    x_max = max(speedups) * 1.15
+    y_max = max(4.0, max(asi_values) * 1.15)
 
-    # Labeling and adjustments
-    ax.set_title(title, fontsize=14, pad=15)
-    ax.set_xlabel("Speedup (S)", fontsize=12)
-    ax.set_ylabel("Architectural Sustainability Indicator (ASI)", fontsize=12)
-    ax.grid(True, linestyle=':', alpha=0.6)
-    ax.legend(loc='upper right', framealpha=0.95)
+    S = np.linspace(x_min, x_max, 500)
+    upper = np.maximum(1, 1 / S)
+    lower = np.minimum(1, 1 / S)
+
+    fig, ax = plt.subplots(figsize=(9, 7))
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(0, y_max)
+
+    ax.fill_between(S, upper, y_max, color="#d4edda", label="Strongly Sustainable")
+    ax.fill_between(S, 0, lower,  color="#f8d7da", label="Unsustainable")
+    ax.fill_between(S, lower, upper, color="#fff3cd", label="Weakly Sustainable")
+
+    ax.plot(S, upper, color="blue",  linewidth=1.5, linestyle="--", alpha=0.7)
+    ax.plot(S, lower, color="green", linewidth=1.5, linestyle="--", alpha=0.7)
+
+    ax.scatter(1, 1, color="black", s=100, zorder=5)
+    ax.text(1.02, 1.03, "Ref (1,1)", fontsize=9, fontweight="bold", zorder=5)
+
+    ax.scatter(speedups, asi_values, color="purple", edgecolors="black", s=80, zorder=6, label="Pareto Front")
+
+    ax.set_title(title, fontsize=14, pad=12)
+    ax.set_xlabel("Speedup (S = 1/Tₙ)", fontsize=12)
+    ax.set_ylabel("ASI", fontsize=12)
+    ax.grid(True, linestyle=":", alpha=0.5)
+    ax.legend(loc="upper right", framealpha=0.95)
 
     plt.tight_layout()
+
+    if save_path is not None:
+        save_path = Path(save_path)
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        print(f"Plot saved → {save_path}")
+
     plt.show()

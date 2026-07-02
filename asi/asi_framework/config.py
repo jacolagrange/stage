@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from typing import Any
 
@@ -32,34 +33,10 @@ DEFAULT_ROB_ADDRESS_DISAMBIGUATION = "true"
 # Alpha controls the area/power trade-off in the ASI formula
 DEFAULT_ALPHA = 0.5
 
-# Search space: for each parameter, the candidate values to try.
-PARAM_SPACE: dict[str, list[Any]] = {
-    "l1i_size":                 [16, 32, 64],
-    "l1d_size":                 [16, 32, 64],
-    "l2_size":                  [128, 256, 512],
-    "l3_size":                  [1024, 2048, 4096, 8192],
-    "l1i_assoc":                [4, 8],
-    "l1d_assoc":                [4, 8],
-    "l2_assoc":                 [4, 8],
-    "l3_assoc":                 [8, 16],
-    "branch_predictor_size":    [512, 1024, 2048],
-    "rob_rs_entries":           [16, 36, 64, 96],
-    #"rob_outstanding_loads":    [16, 32, 48, 64],
-    #"rob_outstanding_stores":   [16, 32, 48, 64],
-
-}
-
-TEST_PARAM_SPACE = {
-    "l1i_size":               [16, 32, 64],
-    "l1d_size":               [16, 32, 64],
-    "l2_size":                [128, 256, 512],
-    "l3_size":                [1024, 2048, 4096, 8192],
-    "l1i_assoc":              [4, 8],
-    "l1d_assoc":              [4, 8],
-    "l2_assoc":               [4, 8],
-    "l3_assoc":               [8, 16],
-    "branch_predictor_size":  [512, 1024, 2048],
-    "rob_rs_entries":         [16, 36, 64, 96],
-    "rob_outstanding_loads":  [16, 32, 48, 64],
-    "rob_outstanding_stores": [16, 32, 48, 64],
-}
+# Search space: for each parameter, the candidate values to try. Following
+# the reference ASI_exploration project's sweep-JSON convention, the first
+# value in each list is the parameter's current/baseline value; the search
+# skips re-testing a parameter at that value.
+PARAM_SPACE_FILE = Path(__file__).resolve().parent / "param_space.json"
+PARAM_SPACE: dict[str, list[Any]] = json.loads(PARAM_SPACE_FILE.read_text())
+DEFAULTS: dict[str, Any] = {param: values[0] for param, values in PARAM_SPACE.items()}

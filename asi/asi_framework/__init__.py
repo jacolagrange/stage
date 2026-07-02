@@ -6,9 +6,11 @@ from .search import (  # noqa: F401
     calculate_asi,
     dominates,
     params_key,
+    fmt_params,
+    sustainability_label,
     evaluate_point,
     update_pareto_front,
-    explore_pareto_front,
+    print_pareto_table,
     explore_pareto_front_with_sensitivity,
 )
 from .cli import build_parser, main  # noqa: F401
