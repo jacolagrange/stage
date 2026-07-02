@@ -1,13 +1,13 @@
-import dataclasses
-import json
-import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 from .models import DesignPoint
 from .runner import run
 from .config import PARAM_SPACE, DEFAULT_ALPHA, DEFAULTS
+from .state import (
+    point_to_dict, point_from_dict, state_path, write_json_atomic, read_raw_state, cleanup_dirs,
+)
 
 # Short display names for parameter keys
 _SHORT = {
@@ -39,8 +39,33 @@ def sustainability_label(asi: float, speedup: float) -> str:
     return "Weakly S-FT"
 
 
+def print_evaluated_point(params: dict[str, Any], point: DesignPoint, prefix: str = "") -> None:
+    label = sustainability_label(point.asi, point.speedup)
+    breakdown = ""
+    if len(point.per_benchmark) > 1:
+        breakdown = "  [" + ", ".join(
+            f"{name}={data['speedup']:.2f}x" for name, data in point.per_benchmark.items()
+        ) + "]"
+    print(
+        f"  {prefix}{fmt_params(params):<32}"
+        f"  ASI={point.asi:7.4f}  S={point.speedup:6.4f}"
+        f"  A={point.area:7.2f}  P={point.peak_power:6.2f}  [{label}]{breakdown}"
+    )
+
+
 def calculate_asi(Ay: float, Ax: float, Py: float, Px: float, alpha: float) -> float:
     return (1 - alpha * (Ax / Ay)) / ((1 - alpha) * (Px / Py))
+
+
+def geomean(values: list[float]) -> float:
+    """Geometric mean, used to combine per-benchmark speedups into the single
+    scalar speedup that both search strategies' Pareto/dominance logic
+    optimizes (standard practice for aggregating a benchmark suite, e.g.
+    SPECspeed) -- with one benchmark this is exactly that benchmark's speedup."""
+    product = 1.0
+    for v in values:
+        product *= v
+    return product ** (1.0 / len(values))
 
 
 def dominates(a: DesignPoint, b: DesignPoint) -> bool:
@@ -60,7 +85,7 @@ def evaluate_point(
     output_path: Path,
     reference_config: str,
     sniper: Path,
-    cmd: list[str],
+    benchmarks: dict[str, list[str]],
     baseline: DesignPoint,
     alpha: float,
     global_cache: dict[frozenset, DesignPoint],
@@ -77,24 +102,36 @@ def evaluate_point(
             speedup=cached.speedup,
             modified_params=modified_params,
             output_path=cached.output_path,
+            per_benchmark=cached.per_benchmark,
         )
 
-    try:
-        area, peak_power, time = run(reference_config, sniper, output_path, cmd, params)
-    except Exception as exc:
-        print(f"    FAILED ({output_path.name}): {exc}")
-        return None
+    areas: list[float] = []
+    powers: list[float] = []
+    per_benchmark: dict[str, dict[str, float]] = {}
+    for name, cmd in benchmarks.items():
+        try:
+            area, peak_power, time = run(reference_config, sniper, output_path / name, cmd, params)
+        except Exception as exc:
+            print(f"    FAILED ({output_path.name}/{name}): {exc}")
+            return None
+        areas.append(area)
+        powers.append(peak_power)
+        per_benchmark[name] = {"time": time}
+
+    for name, data in per_benchmark.items():
+        data["speedup"] = baseline.per_benchmark[name]["time"] / data["time"]
 
     point = DesignPoint(
         params=params,
-        area=area,
-        peak_power=peak_power,
-        time=time,
+        area=sum(areas) / len(areas),
+        peak_power=sum(powers) / len(powers),
+        time=sum(data["time"] for data in per_benchmark.values()) / len(per_benchmark),
         modified_params=modified_params,
         output_path=output_path,
+        per_benchmark=per_benchmark,
     )
     point.asi = calculate_asi(baseline.area, point.area, baseline.peak_power, point.peak_power, alpha)
-    point.speedup = baseline.time / point.time
+    point.speedup = geomean([data["speedup"] for data in per_benchmark.values()])
     global_cache[key] = point
     return point
 
@@ -121,38 +158,13 @@ def print_pareto_table(pareto_set: list[DesignPoint]) -> None:
         )
 
 
-def _cleanup_dirs(dirs: set[Path]) -> int:
-    count = 0
-    for d in dirs:
-        if d and d.exists():
-            shutil.rmtree(d, ignore_errors=True)
-            count += 1
-    return count
-
-
-def _state_path(outputdir: Path) -> Path:
-    return outputdir / "search_state.json"
-
-
-def _point_to_dict(p: DesignPoint) -> dict:
-    d = dataclasses.asdict(p)
-    d["modified_params"] = sorted(d["modified_params"])
-    d["output_path"] = str(d["output_path"]) if d["output_path"] else None
-    return d
-
-
-def _point_from_dict(d: dict) -> DesignPoint:
-    d = dict(d)
-    d["modified_params"] = set(d["modified_params"])
-    d["output_path"] = Path(d["output_path"]) if d["output_path"] else None
-    return DesignPoint(**d)
-
-
 @dataclass
-class _SearchState:
-    """Resumable snapshot of an in-progress search, checkpointed to JSON."""
+class GreedySearchState:
+    """Resumable snapshot of an in-progress greedy/sensitivity search, checkpointed to JSON."""
+    STRATEGY: ClassVar[str] = "greedy"
+
     reference_config: str
-    cmd: list[str]
+    benchmarks: dict[str, list[str]]
     alpha: float
     iteration: int
     baseline: DesignPoint
@@ -163,67 +175,69 @@ class _SearchState:
     freeze_count: dict[str, int]
     sensitivity_history: dict[str, tuple[list[float], list[float]]]
 
-    def matches(self, reference_config: str, cmd: list[str], alpha: float) -> bool:
+    def matches(self, reference_config: str, benchmarks: dict[str, list[str]], alpha: float) -> bool:
         return (
             self.reference_config == str(reference_config)
-            and self.cmd == cmd
+            and self.benchmarks == benchmarks
             and self.alpha == alpha
         )
 
     def to_dict(self) -> dict:
         return {
+            "strategy": self.STRATEGY,
             "reference_config": self.reference_config,
-            "cmd": self.cmd,
+            "benchmarks": self.benchmarks,
             "alpha": self.alpha,
             "iteration": self.iteration,
-            "baseline": _point_to_dict(self.baseline),
-            "pareto_set": [_point_to_dict(p) for p in self.pareto_set],
-            "newly_added": [_point_to_dict(p) for p in self.newly_added],
-            "global_cache": [_point_to_dict(p) for p in self.global_cache.values()],
+            "baseline": point_to_dict(self.baseline),
+            "pareto_set": [point_to_dict(p) for p in self.pareto_set],
+            "newly_added": [point_to_dict(p) for p in self.newly_added],
+            "global_cache": [point_to_dict(p) for p in self.global_cache.values()],
             "frozen_until": self.frozen_until,
             "freeze_count": self.freeze_count,
             "sensitivity_history": self.sensitivity_history,
         }
 
     @classmethod
-    def from_dict(cls, d: dict) -> "_SearchState":
+    def from_dict(cls, d: dict) -> "GreedySearchState":
         sensitivity_history = {k: tuple(v) for k, v in d["sensitivity_history"].items()}
         for p in PARAM_SPACE:
             sensitivity_history.setdefault(p, ([], []))
         return cls(
             reference_config=d["reference_config"],
-            cmd=d["cmd"],
+            benchmarks=d["benchmarks"],
             alpha=d["alpha"],
             iteration=d["iteration"],
-            baseline=_point_from_dict(d["baseline"]),
-            pareto_set=[_point_from_dict(x) for x in d["pareto_set"]],
-            newly_added=[_point_from_dict(x) for x in d["newly_added"]],
-            global_cache={params_key(x["params"]): _point_from_dict(x) for x in d["global_cache"]},
+            baseline=point_from_dict(d["baseline"]),
+            pareto_set=[point_from_dict(x) for x in d["pareto_set"]],
+            newly_added=[point_from_dict(x) for x in d["newly_added"]],
+            global_cache={params_key(x["params"]): point_from_dict(x) for x in d["global_cache"]},
             frozen_until=d["frozen_until"],
             freeze_count=d["freeze_count"],
             sensitivity_history=sensitivity_history,
         )
 
     def save(self, outputdir: Path) -> None:
-        path = _state_path(outputdir)
-        tmp = path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(self.to_dict(), indent=2))
-        tmp.replace(path)
+        write_json_atomic(state_path(outputdir), self.to_dict())
 
     @classmethod
-    def load(cls, outputdir: Path) -> "_SearchState | None":
-        path = _state_path(outputdir)
-        if not path.exists():
+    def load(cls, outputdir: Path) -> "GreedySearchState | None":
+        raw = read_raw_state(outputdir)
+        if raw is None:
             return None
-        with open(path) as f:
-            return cls.from_dict(json.load(f))
+        found = raw.get("strategy", "greedy")  # missing key == pre-multi-strategy state file
+        if found != cls.STRATEGY:
+            print(f"Saved search state at {state_path(outputdir)} was written by strategy "
+                  f"'{found}', not '{cls.STRATEGY}' — starting fresh.\n")
+            return None
+        return cls.from_dict(raw)
 
 
 def explore_pareto_front_with_sensitivity(
     reference_config: str,
     sniper: Path,
     outputdir: Path,
-    cmd: list[str],
+    benchmarks: dict[str, list[str]],
     alpha: float = DEFAULT_ALPHA,
     max_iterations: int = 5,
 ) -> list[DesignPoint]:
@@ -235,33 +249,45 @@ def explore_pareto_front_with_sensitivity(
     SENSITIVITY_WINDOW = 6
     PROBATION_LENGTH = 2
 
-    loaded = _SearchState.load(outputdir)
-    resumable = loaded is not None and loaded.matches(reference_config, cmd, alpha)
+    loaded = GreedySearchState.load(outputdir)
+    resumable = loaded is not None and loaded.matches(reference_config, benchmarks, alpha)
     if loaded is not None and not resumable:
-        print(f"Saved search state at {_state_path(outputdir)} doesn't match this "
+        print(f"Saved search state at {state_path(outputdir)} doesn't match this "
               f"run's config/command/alpha — starting fresh.\n")
 
     if resumable:
         state = loaded
         print(f"Resuming search from iteration {state.iteration} "
-              f"(found {_state_path(outputdir)})\n")
+              f"(found {state_path(outputdir)})\n")
     else:
         # --- Baseline ---
         print("Running baseline...")
         baseline_dir = outputdir / "baseline"
-        try:
-            area, peak_power, time = run(reference_config, sniper, baseline_dir, cmd, {})
-        except Exception as exc:
-            raise RuntimeError(f"Baseline run failed: {exc}") from exc
+        areas: list[float] = []
+        powers: list[float] = []
+        per_benchmark: dict[str, dict[str, float]] = {}
+        for name, cmd in benchmarks.items():
+            try:
+                area, peak_power, time = run(reference_config, sniper, baseline_dir / name, cmd, {})
+            except Exception as exc:
+                raise RuntimeError(f"Baseline run failed ({name}): {exc}") from exc
+            areas.append(area)
+            powers.append(peak_power)
+            per_benchmark[name] = {"time": time, "speedup": 1.0}
 
         baseline = DesignPoint(
-            params={}, area=area, peak_power=peak_power, time=time,
+            params={}, area=sum(areas) / len(areas), peak_power=sum(powers) / len(powers),
+            time=sum(d["time"] for d in per_benchmark.values()) / len(per_benchmark),
             asi=1.0, speedup=1.0, modified_params=set(), output_path=baseline_dir,
+            per_benchmark=per_benchmark,
         )
-        print(f"  Area={area:.2f} mm²  PeakPow={peak_power:.2f} W  Time={time:.0f} ns\n")
+        print(f"  Area={baseline.area:.2f} mm²  PeakPow={baseline.peak_power:.2f} W")
+        for name, d in per_benchmark.items():
+            print(f"    {name}: Time={d['time']:.0f} ns")
+        print()
 
-        state = _SearchState(
-            reference_config=str(reference_config), cmd=cmd, alpha=alpha, iteration=0,
+        state = GreedySearchState(
+            reference_config=str(reference_config), benchmarks=benchmarks, alpha=alpha, iteration=0,
             baseline=baseline, pareto_set=[baseline], newly_added=[baseline],
             global_cache={params_key({}): baseline}, frozen_until={}, freeze_count={},
             sensitivity_history={p: ([], []) for p in PARAM_SPACE},
@@ -301,17 +327,12 @@ def explore_pareto_front_with_sensitivity(
         for i, (params, modified, varied_param, parent_asi, parent_speedup) in enumerate(search_set):
             out = outputdir / f"iter{iteration}_run{i}"
             point = evaluate_point(
-                params, modified, out, reference_config, sniper, cmd, state.baseline, alpha, state.global_cache,
+                params, modified, out, reference_config, sniper, state.benchmarks, state.baseline, alpha, state.global_cache,
             )
             if point is None:
                 continue
             evaluated.append(point)
-            label = sustainability_label(point.asi, point.speedup)
-            print(
-                f"  {fmt_params(params):<32}"
-                f"  ASI={point.asi:7.4f}  S={point.speedup:6.4f}"
-                f"  A={point.area:7.2f}  P={point.peak_power:6.2f}  [{label}]"
-            )
+            print_evaluated_point(params, point)
             state.sensitivity_history[varied_param][0].append(
                 abs(point.asi - parent_asi) / max(parent_asi, 1e-9)
             )
@@ -339,7 +360,7 @@ def explore_pareto_front_with_sensitivity(
 
         # Delete output dirs of points that didn't make the Pareto front
         dropped = (old_pareto_dirs | {p.output_path for p in evaluated if p.output_path}) - all_pareto_dirs
-        n = _cleanup_dirs(dropped)
+        n = cleanup_dirs(dropped)
         if n:
             print(f"  Deleted {n} non-Pareto output director{'y' if n == 1 else 'ies'}.")
 
@@ -353,7 +374,7 @@ def explore_pareto_front_with_sensitivity(
         state.save(outputdir)
 
     # Final cleanup: drop any surviving dirs no longer on the Pareto front
-    n = _cleanup_dirs(all_pareto_dirs - {p.output_path for p in state.pareto_set if p.output_path} - {baseline_dir})
+    n = cleanup_dirs(all_pareto_dirs - {p.output_path for p in state.pareto_set if p.output_path} - {baseline_dir})
     if n:
         print(f"Final cleanup: removed {n} stale output director{'y' if n == 1 else 'ies'}.")
 
