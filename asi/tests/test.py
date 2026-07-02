@@ -28,8 +28,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from asi_framework import search as search_module
 from asi_framework import config as cfg
-
 from asi_framework import plot as plt
+from asi_framework.search import fmt_params, sustainability_label, print_pareto_table
 
 # ---------------------------------------------------------------------------
 # Ground truth landscape generator: instead of hand-picking which parameters
@@ -66,39 +66,35 @@ def generate_true_effects(
 
 TRUE_EFFECTS_SEED = 42  # change this to sample a different landscape
 
+# As in asi_framework/param_space.json, the first value in each list is the
+# parameter's baseline/default value; DEFAULTS below is derived from it
+# rather than hand-duplicated, so the two can't drift out of sync.
 TEST_PARAM_SPACE = {
-    "l1i_size":               [16, 32, 64],
-    "l1d_size":               [16, 32, 64],
-    "l2_size":                [128, 256, 512],
-    "l3_size":                [1024, 2048, 4096, 8192],
-    "l1i_assoc":              [4, 8],
-    "l1d_assoc":              [4, 8],
-    "l2_assoc":               [4, 8],
-    "l3_assoc":               [8, 16],
-    "branch_predictor_size":  [512, 1024, 2048],
-    "rob_rs_entries":         [16, 36, 64, 96],
-    "rob_outstanding_loads":  [16, 32, 48, 64],
-    "rob_outstanding_stores": [16, 32, 48, 64],
+    "l1i_size":               [cfg.DEFAULT_L1I_SIZE, 16, 32, 64],
+    "l1d_size":               [cfg.DEFAULT_L1D_SIZE, 16, 32, 64],
+    "l2_size":                [cfg.DEFAULT_L2_SIZE, 128, 256, 512],
+    "l3_size":                [cfg.DEFAULT_L3_SIZE, 1024, 2048, 4096, 8192],
+    "l1i_assoc":              [cfg.DEFAULT_L1I_ASSOC, 4, 8],
+    "l1d_assoc":              [cfg.DEFAULT_L1D_ASSOC, 4, 8],
+    "l2_assoc":               [cfg.DEFAULT_L2_ASSOC, 4, 8],
+    "l3_assoc":               [cfg.DEFAULT_L3_ASSOC, 8, 16],
+    "branch_predictor_size":  [cfg.DEFAULT_BRANCH_PREDICTOR_SIZE, 512, 1024, 2048],
+    "rob_rs_entries":         [cfg.DEFAULT_ROB_RS_ENTRIES, 16, 36, 64, 96],
+    "rob_outstanding_loads":  [cfg.DEFAULT_ROB_OUTSTANDING_LOADS, 16, 32, 48, 64],
+    "rob_outstanding_stores": [cfg.DEFAULT_ROB_OUTSTANDING_STORES, 16, 32, 48, 64],
+}
+# Each list above may repeat its own default (e.g. rob_rs_entries already
+# includes 36); de-dup while preserving order so it still matches PARAM_SPACE's
+# "default first, then alternates" convention.
+TEST_PARAM_SPACE = {
+    param: list(dict.fromkeys(values)) for param, values in TEST_PARAM_SPACE.items()
 }
 
 TRUE_EFFECTS = generate_true_effects(TEST_PARAM_SPACE, seed=TRUE_EFFECTS_SEED)
 
 NOISE_STD = 0.05  # simulation noise added to area/power, roughly matching threshold scale
 
-DEFAULTS = {
-    "l1i_size": cfg.DEFAULT_L1I_SIZE,
-    "l1d_size": cfg.DEFAULT_L1D_SIZE,
-    "l2_size": cfg.DEFAULT_L2_SIZE,
-    "l3_size": cfg.DEFAULT_L3_SIZE,
-    "l1i_assoc": cfg.DEFAULT_L1I_ASSOC,
-    "l1d_assoc": cfg.DEFAULT_L1D_ASSOC,
-    "l2_assoc": cfg.DEFAULT_L2_ASSOC,
-    "l3_assoc": cfg.DEFAULT_L3_ASSOC,
-    "branch_predictor_size": cfg.DEFAULT_BRANCH_PREDICTOR_SIZE,
-    "rob_rs_entries": cfg.DEFAULT_ROB_RS_ENTRIES,
-    "rob_outstanding_loads": cfg.DEFAULT_ROB_OUTSTANDING_LOADS,
-    "rob_outstanding_stores": cfg.DEFAULT_ROB_OUTSTANDING_STORES,
-}
+DEFAULTS = {param: values[0] for param, values in TEST_PARAM_SPACE.items()}
 
 BASE_AREA = 31.6
 BASE_POWER = 17.5
@@ -196,9 +192,11 @@ def main() -> None:
     # called from (search.py imports it via `from .runner import run`).
     search_module.run = fake_run
 
-    # Also override PARAM_SPACE so the test exercises every parameter, not
-    # just whichever ones happen to be active in asi_framework/config.py.
+    # Also override PARAM_SPACE (and matching DEFAULTS) so the test exercises
+    # every parameter, not just whichever ones happen to be active in
+    # asi_framework/config.py's param_space.json.
     search_module.PARAM_SPACE = TEST_PARAM_SPACE
+    search_module.DEFAULTS = DEFAULTS
 
     outputdir = Path("/tmp/asi_test_output")
     outputdir.mkdir(parents=True, exist_ok=True)
@@ -213,14 +211,10 @@ def main() -> None:
     )
 
     print("\n=== Final Pareto Front (synthetic) ===")
-    print(f"{'Params':<55} {'ASI':>8} {'Speedup':>10} {'Area':>10} {'PeakPow':>10}")
-    print("-" * 100)
-    for p in sorted(front, key=lambda x: x.speedup):
-        print(f"{str(p.params):<55} {p.asi:>8.4f} {p.speedup:>10.4f} "
-              f"{p.area:>10.4f} {p.peak_power:>10.4f}")
+    print_pareto_table(front)
 
-    print("\nExpected: l3_size and rob_rs_entries stay active (real effect, if present in PARAM_SPACE);")
-    print("everything else should get frozen within the first couple iterations.")
+    print("\nExpected: parameters with real effects stay active;")
+    print("insensitive parameters should freeze within the first couple of iterations.")
     plt.plot_pareto_front_on_asi(front, title="Synthetic Test Pareto Front")
 
 
