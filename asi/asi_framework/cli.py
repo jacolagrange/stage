@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 from .config import RUN_SNIPER, DEFAULT_OUTPUT_DIR, DEFAULT_ALPHA
-from .greedy import print_pareto_table
+from . import greedy, spea2, mesmo, screening
 from .strategies import STRATEGIES
 from .plot import plot_pareto_front_on_asi
 
@@ -43,6 +43,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="asi.py",
         description="ASI-guided design space exploration for processor microarchitectures.",
+        epilog="Example:\n"
+               "  asi.py --config nehalem.cfg --strategy spea2 --log --save-plot -- ./bench_a arg1\n\n"
+               "One or more benchmark commands must follow '--'; repeat '-- ./other_bench ...'\n"
+               "to search across multiple benchmarks at once.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--config", required=True, help="Reference Sniper config file.")
     parser.add_argument("--sniper", default=str(RUN_SNIPER), help="Path to run-sniper.")
@@ -50,10 +55,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--alpha", type=float, default=DEFAULT_ALPHA,
                         help="Alpha weight for ASI (0=operational, 1=embodied).")
     parser.add_argument("--strategy", choices=sorted(STRATEGIES), default="greedy",
-                        help="Search strategy: 'greedy' (sensitivity-freezing hill-climb, default) "
-                             "or 'spea2' (COLE-style multi-objective evolutionary search).")
-    parser.add_argument("--iterations", type=int, default=10,
-                        help="Maximum number of search iterations (greedy) / generations (spea2).")
+                        help="Search strategy: 'greedy' (sensitivity-freezing hill-climb, default), "
+                             "'spea2' (COLE-style multi-objective evolutionary search), or 'mesmo' "
+                             "(max-value entropy search multi-objective Bayesian optimization).")
+    parser.add_argument("--iterations", type=int, default=None,
+                        help="Maximum number of search iterations (greedy) / generations (spea2) "
+                             "/ BO iterations (mesmo). Defaults to whichever strategy is selected "
+                             "picking its own default (5 for greedy, 30 for spea2/mesmo) rather than "
+                             "one fixed number for every strategy.")
     parser.add_argument("--log", nargs="?", const="auto", metavar="PATH",
                         help="Save terminal output to PATH. Omit PATH to use outputdir/run.log.")
     parser.add_argument("--save-plot", nargs="?", const="auto", metavar="PATH",
@@ -73,9 +82,74 @@ def build_parser() -> argparse.ArgumentParser:
     spea2_group.add_argument("--p-migration", type=float, default=0.10,
                               help="Per mating-pool slot probability of drawing from another population.")
     spea2_group.add_argument("--patience", type=int, default=5,
-                              help="Stop after this many generations with no hypervolume improvement.")
+                              help="Stop after this many generations with no hypervolume improvement "
+                                   "(spea2 only -- see --mesmo-patience for mesmo).")
     spea2_group.add_argument("--seed", type=int, default=0,
-                              help="RNG seed for reproducible SPEA2 runs.")
+                              help="RNG seed for reproducible runs (spea2, mesmo).")
+
+    mesmo_group = parser.add_argument_group("mesmo strategy options")
+    mesmo_group.add_argument("--num-initial-points", type=int, default=5,
+                              help="Random configurations (plus the baseline) evaluated up front to "
+                                   "seed MESMO's GP surrogate before the first acquisition-guided "
+                                   "iteration.")
+    mesmo_group.add_argument("--candidate-pool-size", type=int, default=200,
+                              help="Fresh not-yet-evaluated configurations sampled each iteration and "
+                                   "scored with the acquisition function (stands in for MESMO's "
+                                   "argmax over the whole PARAM_SPACE). Roughly half are local "
+                                   "single-parameter neighbors of the current Pareto front, half fresh "
+                                   "global random draws.")
+    mesmo_group.add_argument("--batch-size", type=int, default=1,
+                              help="Top-ranked candidates evaluated per iteration before refitting the "
+                                   "GP surrogate (1 = sequential MESMO as in the paper; >1 trades some "
+                                   "acquisition accuracy for fewer, batched refits).")
+    mesmo_group.add_argument("--mc-samples", type=int, default=10, dest="num_mc_samples",
+                              help="Monte-Carlo samples of the Pareto front used to estimate MESMO's "
+                                   "acquisition function per candidate (S in the paper).")
+    mesmo_group.add_argument("--gp-features", type=int, default=250,
+                              help="Random Fourier features used to approximate each objective's GP "
+                                   "surrogate.")
+    mesmo_group.add_argument("--gp-lengthscale", type=float, default=None,
+                              help="Kernel lengthscale for the GP surrogates. Defaults to a "
+                                   "median-heuristic bandwidth re-derived from the real evaluations seen "
+                                   "so far each iteration.")
+    mesmo_group.add_argument("--gp-noise", type=float, default=1e-4,
+                              help="GP observation noise variance (in standardized objective units).")
+    mesmo_group.add_argument("--mesmo-patience", type=int, default=None, dest="hv_patience",
+                              help="Stop after this many iterations with no hypervolume improvement. "
+                                   "Unset by default (runs the full --iterations budget), matching the "
+                                   "paper's fixed-budget algorithm -- unlike spea2's --patience, a mesmo "
+                                   "iteration can evaluate as little as one point, so a short patience "
+                                   "window would trigger on ordinary exploration noise.")
+
+    preeval_group = parser.add_argument_group("pre-evaluation screening options")
+    preeval_group.add_argument("--preeval-samples", type=int, default=0,
+                                help="If >0, screen PARAM_SPACE for important parameters before "
+                                     "running the search strategy (runs independently of "
+                                     "--strategy). Unimportant parameters are pruned to their "
+                                     "default-only value (see --preeval-threshold and --preeval-method "
+                                     "for how importance is judged). 0 disables screening (default). "
+                                     "Sets the sample count for --preeval-method perceptron; with "
+                                     "plackett_burman it's just the on/off switch (e.g. 1) -- that "
+                                     "method's run count is fixed by the parameter count instead.")
+    preeval_group.add_argument("--preeval-method", choices=("perceptron", "plackett_burman"),
+                                default="perceptron",
+                                help="Screening method: 'perceptron' (default) trains a linear unit "
+                                     "on --preeval-samples random configurations; 'plackett_burman' "
+                                     "instead screens most parameters with a Plackett-Burman design "
+                                     "with foldover (Yi, Lilja & Hawkins, Section 2), plus a small "
+                                     "deterministic one-value-at-a-time sweep just for "
+                                     "branch_predictor_type and its own knobs, since that's a "
+                                     ">2-valued categorical choice a 2-level PB factor can't represent.")
+    preeval_group.add_argument("--preeval-threshold", type=float, default=0.1,
+                                help="Keep a parameter only if its estimated importance is at least "
+                                     "this fraction of the most important parameter's (default 0.1). "
+                                     "Used by --preeval-method perceptron, and by plackett_burman's "
+                                     "branch-predictor one-at-a-time screen; plackett_burman's main "
+                                     "parameters are instead pruned against their own design's "
+                                     "dummy-column noise ceiling (Yi, Lilja & Hawkins, Table 6).")
+    preeval_group.add_argument("--preeval-seed", type=int, default=0,
+                                help="RNG seed for pre-evaluation sampling (default 0). Ignored by "
+                                     "--preeval-method plackett_burman, which is fully deterministic.")
     return parser
 
 
@@ -136,8 +210,13 @@ def main() -> int:
         "outputdir": outputdir,
         "benchmarks": args.benchmarks,
         "alpha": args.alpha,
-        "max_iterations": args.iterations,
     }
+    # Only forward max_iterations if the user actually passed --iterations;
+    # otherwise let the chosen strategy's own function default apply (5 for
+    # greedy, 30 for spea2/mesmo) instead of one fixed number for everyone.
+    if args.iterations is not None:
+        base_kwargs["max_iterations"] = args.iterations
+
     # Forward any strategy-specific CLI flags (e.g. --populations, --seed) whose
     # dest name matches a parameter the chosen strategy's run function accepts.
     # This is what lets a future strategy plug in without touching this dispatch.
@@ -152,10 +231,34 @@ def main() -> int:
             f"{name} ({' '.join(cmd)})" for name, cmd in args.benchmarks.items()
         ) + "\n")
 
+        if args.preeval_samples > 0:
+            pruned_param_space, preeval_cache = screening.screen_param_space(
+                reference_config=args.config,
+                sniper=sniper,
+                outputdir=outputdir,
+                benchmarks=args.benchmarks,
+                alpha=args.alpha,
+                num_samples=args.preeval_samples,
+                keep_threshold=args.preeval_threshold,
+                seed=args.preeval_seed,
+                method=args.preeval_method,
+            )
+            # All three strategies read PARAM_SPACE as a name bound into their
+            # own module at import time (`from .config import PARAM_SPACE`),
+            # so patching config.PARAM_SPACE itself wouldn't reach them --
+            # same convention tests/test.py already relies on.
+            greedy.PARAM_SPACE = pruned_param_space
+            spea2.PARAM_SPACE = pruned_param_space
+            mesmo.PARAM_SPACE = pruned_param_space
+            # Seeds the strategy's own global_cache (baseline + any screening
+            # sample it happens to re-encounter) on a fresh start; a resumed
+            # run ignores it in favor of its own saved cache.
+            base_kwargs["initial_cache"] = preeval_cache
+
         front = strategy.run(**base_kwargs, **extra_kwargs)
 
         print("=== Final Pareto Front ===")
-        print_pareto_table(front)
+        greedy.print_pareto_table(front)
 
     plot_pareto_front_on_asi(front, title="ASI Pareto Front", save_path=save_plot)
     return 0

@@ -3,7 +3,7 @@
 Test harness for asi_framework's search/sensitivity/probation logic, without
 running real Sniper simulations.
 
-We monkeypatch asi_framework.search.run() with a synthetic function that:
+We monkeypatch asi_framework.greedy.run() with a synthetic function that:
   - parses the generated .cfg file to recover the parameter values
   - computes a fake area/power/time from a known formula
   - injects small random noise to mimic simulation measurement noise
@@ -11,8 +11,8 @@ We monkeypatch asi_framework.search.run() with a synthetic function that:
 This lets us pick which parameters "matter" and which don't, then check
 that the freezing/probation logic correctly identifies them.
 
-NOTE: we patch asi_framework.search.run (the name bound inside search.py via
-`from .runner import run`), not asi_framework.runner.run, because search.py
+NOTE: we patch asi_framework.greedy.run (the name bound inside greedy.py via
+`from .runner import run`), not asi_framework.runner.run, because greedy.py
 calls the local name `run` directly.
 """
 
@@ -26,10 +26,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from asi.asi_framework import greedy as search_module
+from asi_framework import greedy
 from asi_framework import config as cfg
 from asi_framework import plot as plt
-from asi.asi_framework.greedy import fmt_params, sustainability_label, print_pareto_table
+from asi_framework.greedy import print_pareto_table
 
 # ---------------------------------------------------------------------------
 # Ground truth landscape generator: instead of hand-picking which parameters
@@ -188,20 +188,20 @@ def main() -> None:
     print()
 
     # Monkeypatch: replace the real run() with our synthetic one. We patch it
-    # on the search module specifically, since that's where `run(...)` is
-    # called from (search.py imports it via `from .runner import run`).
-    search_module.run = fake_run
+    # on the greedy module specifically, since that's where `run(...)` is
+    # called from (greedy.py imports it via `from .runner import run`).
+    greedy.run = fake_run
 
     # Also override PARAM_SPACE (and matching DEFAULTS) so the test exercises
     # every parameter, not just whichever ones happen to be active in
     # asi_framework/config.py's param_space.json.
-    search_module.PARAM_SPACE = TEST_PARAM_SPACE
-    search_module.DEFAULTS = DEFAULTS
+    greedy.PARAM_SPACE = TEST_PARAM_SPACE
+    greedy.DEFAULTS = DEFAULTS
 
     outputdir = Path("/tmp/asi_test_output")
     outputdir.mkdir(parents=True, exist_ok=True)
 
-    front = search_module.explore_pareto_front_with_sensitivity(
+    front = greedy.explore_pareto_front_with_sensitivity(
         reference_config="dummy_reference.cfg",
         sniper=Path("/fake/run-sniper"),  # never actually used by fake_run
         outputdir=outputdir,
