@@ -1,6 +1,6 @@
 """
 Shared checkpoint/serialization primitives, used by every search strategy's
-own resumable-state dataclass (see search.py's GreedySearchState and
+own resumable-state dataclass (see greedy.py's GreedySearchState and
 spea2.py's Spea2SearchState).
 
 Each strategy owns its own state shape (the greedy search's Pareto front +

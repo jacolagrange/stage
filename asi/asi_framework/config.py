@@ -5,10 +5,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent.parent
 RUN_SNIPER = ROOT / "snipersim" / "run-sniper"
 DEFAULT_OUTPUT_DIR = ROOT / "asi" / "asi-output"
-DEFAULT_CORE_MODEL = "nehalem"
 DEFAULT_CORE_TYPE = "rob"
-DEFAULT_FREQUENCY = 2.66
-DEFAULT_LOGICAL_CPUS = 1
 DEFAULT_L1I_SIZE = 32
 DEFAULT_L1D_SIZE = 32
 DEFAULT_L2_SIZE = 256
@@ -18,7 +15,6 @@ DEFAULT_L1D_ASSOC = 8
 DEFAULT_L2_ASSOC = 8
 DEFAULT_L3_ASSOC = 16
 DEFAULT_BRANCH_PREDICTOR_TYPE = "a53"
-DEFAULT_BRANCH_MISPREDICT_PENALTY = 10
 DEFAULT_BRANCH_PREDICTOR_SIZE = 1024
 DEFAULT_NUM_HISTORY_REGISTERS = 3
 DEFAULT_NN_BATCH_LENGTH = 32
@@ -34,10 +30,13 @@ DEFAULT_NN_LEARNING_RATE = 0.001
 # see config_builder.py's SNIPER_ROB_DEFAULTS.
 DEFAULT_ROB_WINDOW_SIZE = 128
 DEFAULT_ROB_DISPATCH_WIDTH = 4
-DEFAULT_ROB_RS_ENTRIES = 36
+# rob_rs_entries is not an independent knob -- Sniper's reservation station is
+# sized off the ROB window, so it's always derived as half of rob_window_size
+# (see config_builder.py) rather than swept on its own.
+DEFAULT_ROB_RS_ENTRIES = DEFAULT_ROB_WINDOW_SIZE // 2
 DEFAULT_ROB_OUTSTANDING_LOADS = 48
 DEFAULT_ROB_OUTSTANDING_STORES = 32
-DEFAULT_ROB_COMMIT_WIDTH = 128
+DEFAULT_ROB_COMMIT_WIDTH = 4
 DEFAULT_ROB_IN_ORDER = "false"
 DEFAULT_ROB_STORE_TO_LOAD_FORWARDING = "true"
 DEFAULT_ROB_ADDRESS_DISAMBIGUATION = "true"
@@ -67,6 +66,7 @@ BRANCH_PREDICTOR_PARAMS: dict[str, tuple[str, ...]] = {
     "a53": ("branch_predictor_size", "num_history_registers"),
     "nn": ("nn_batch_length", "nn_learning_rate"),
     "pentium_m": (),
+    "tage": (),
 }
 CONDITIONAL_PARAMS: set[str] = {p for params in BRANCH_PREDICTOR_PARAMS.values() for p in params}
 

@@ -8,7 +8,7 @@ class DesignPoint:
     """One evaluated design point.
 
     A point may be evaluated against several benchmarks at once (see
-    search.py's evaluate_point); area/peak_power/time are then the mean
+    greedy.py's evaluate_point); area/peak_power/time are then the mean
     across benchmarks and speedup is their geometric mean, while
     per_benchmark keeps each benchmark's own {time, speedup} so a config
     that trades a loss on one workload for a bigger win on another is
