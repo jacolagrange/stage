@@ -41,9 +41,9 @@ def run(
         stdout_log = result.stdout
         stderr_log = result.stderr
     except subprocess.CalledProcessError as err:
-        print("=== Sniper STDOUT ===")
+        print("=== SNIPER STDOUT ===")
         print(err.stdout)
-        print("=== Sniper STDERR ===")
+        print("=== SNIPER STDERR ===")
         print(err.stderr)
         raise RuntimeError(f"Sniper exited with status {err.returncode}")
 

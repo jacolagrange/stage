@@ -7,7 +7,7 @@ Thiele, 2001). COLE applied SPEA2 to compiler-flag selection (two objectives:
 execution time, compilation time); here the same SPEA2 mechanism is applied
 to Sniper microarchitecture parameters (two objectives: ASI, speedup).
 
-Unlike the greedy strategy in search.py -- which starts from the baseline and
+Unlike the greedy strategy in greedy.py -- which starts from the baseline and
 grows the design space one parameter at a time -- SPEA2 samples full
 multi-dimensional configurations ("entities") directly from the whole
 PARAM_SPACE and refines them generation over generation via selection,
@@ -22,15 +22,15 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from .models import DesignPoint
-from .runner import run
 from .config import (
     PARAM_SPACE, DEFAULT_ALPHA, DEFAULTS, DEFAULT_BRANCH_PREDICTOR_TYPE,
     BRANCH_PREDICTOR_PARAMS, CONDITIONAL_PARAMS, active_params,
 )
 from .greedy import (
     evaluate_point, dominates, update_pareto_front, print_pareto_table,
-    print_evaluated_point, params_key,
+    print_evaluated_point, params_key, compute_baseline, hypervolume,
 )
+from .plot import plot_pareto_front_on_asi, plot_pareto_fronts_on_asi
 from .state import (
     point_to_dict, point_from_dict, state_path, write_json_atomic, read_raw_state,
     cleanup_dirs, rng_state_to_json, rng_state_from_json,
@@ -214,23 +214,9 @@ def _make_mating_pool(
 
 # ---------------------------------------------------------------------------
 # Hypervolume (paper Sec 4.3) -- used both to report progress and to detect
-# convergence ("no more improvement").
+# convergence ("no more improvement"). hypervolume() itself lives in
+# greedy.py so both strategies (and cli.py) share the same definition.
 # ---------------------------------------------------------------------------
-
-def _hypervolume(front: list[DesignPoint], ref_asi: float = 0.0, ref_speedup: float = 0.0) -> float:
-    """2D hypervolume of a maximizing Pareto front relative to a reference
-    point that's worse than every point on both axes (the origin, since ASI
-    and speedup are always positive here)."""
-    if not front:
-        return 0.0
-    pts = sorted(front, key=lambda p: p.speedup)  # ascending speedup => non-increasing asi
-    hv = 0.0
-    prev_speedup = ref_speedup
-    for p in pts:
-        hv += max(0.0, p.asi - ref_asi) * max(0.0, p.speedup - prev_speedup)
-        prev_speedup = p.speedup
-    return hv
-
 
 def _has_converged(hv_history: list[float], patience: int, rel_tol: float = 1e-3) -> bool:
     """True if the best hypervolume seen in the last `patience` generations
@@ -238,8 +224,8 @@ def _has_converged(hv_history: list[float], patience: int, rel_tol: float = 1e-3
     that window -- i.e. the overall Pareto frontier has stopped improving."""
     if len(hv_history) <= patience:
         return False
-    best_before = max(hv_history[:-patience]) # evrything before the last `patience` generations
-    recent_best = max(hv_history[-patience:]) # the last `patience` generations
+    best_before = max(hv_history[:-patience])
+    recent_best = max(hv_history[-patience:])
     return recent_best <= best_before * (1 + rel_tol)
 
 
@@ -261,14 +247,25 @@ class Spea2SearchState:
     populations: list[list[DesignPoint]]
     archives: list[list[DesignPoint]]
     pareto_front: list[DesignPoint]
+    pareto_front_history: list[list[DesignPoint]]
     hv_history: list[float]
     rng_state: list
+    sniper_runs: int
+    param_space: dict[str, list]
 
     def matches(self, reference_config: str, benchmarks: dict[str, list[str]], alpha: float) -> bool:
+        """Also checked against the live PARAM_SPACE: only generation 0 samples
+        branch_predictor_type (and every other parameter) uniformly at random
+        across the whole space -- every later generation only reaches a value
+        via mutation of an existing population, which is far too rare to
+        introduce a brand-new parameter/value (e.g. a newly added
+        branch_predictor_type) in any reasonable number of generations. So a
+        PARAM_SPACE change must restart from generation 0, not resume."""
         return (
             self.reference_config == str(reference_config)
             and self.benchmarks == benchmarks
             and self.alpha == alpha
+            and self.param_space == PARAM_SPACE
         )
 
     def to_dict(self) -> dict:
@@ -283,8 +280,11 @@ class Spea2SearchState:
             "populations": [[point_to_dict(p) for p in pop] for pop in self.populations],
             "archives": [[point_to_dict(p) for p in arc] for arc in self.archives],
             "pareto_front": [point_to_dict(p) for p in self.pareto_front],
+            "pareto_front_history": [[point_to_dict(p) for p in front] for front in self.pareto_front_history],
             "hv_history": self.hv_history,
             "rng_state": self.rng_state,
+            "sniper_runs": self.sniper_runs,
+            "param_space": self.param_space,
         }
 
     @classmethod
@@ -299,8 +299,13 @@ class Spea2SearchState:
             populations=[[point_from_dict(x) for x in pop] for pop in d["populations"]],
             archives=[[point_from_dict(x) for x in arc] for arc in d["archives"]],
             pareto_front=[point_from_dict(x) for x in d["pareto_front"]],
+            pareto_front_history=[
+                [point_from_dict(x) for x in front] for front in d.get("pareto_front_history", [])
+            ],
             hv_history=d["hv_history"],
             rng_state=d["rng_state"],
+            sniper_runs=d.get("sniper_runs", 0),
+            param_space=d.get("param_space", {}),
         )
 
     def save(self, outputdir: Path) -> None:
@@ -326,11 +331,11 @@ class Spea2SearchState:
 def _evaluate_entity(
     params: dict[str, Any], out: Path, reference_config: str, sniper: Path, benchmarks: dict[str, list[str]],
     baseline: DesignPoint, alpha: float, global_cache: dict[frozenset, DesignPoint], prefix: str,
-) -> DesignPoint | None:
-    point = evaluate_point(params, _modified_params(params), out, reference_config, sniper, benchmarks, baseline, alpha, global_cache)
+) -> tuple[DesignPoint | None, bool]:
+    point, ran = evaluate_point(params, _modified_params(params), out, reference_config, sniper, benchmarks, baseline, alpha, global_cache)
     if point is not None:
         print_evaluated_point(params, point, prefix=prefix)
-    return point
+    return point, ran
 
 
 def _live_output_dirs(state: "Spea2SearchState", baseline_dir: Path) -> set[Path]:
@@ -358,6 +363,7 @@ def explore_pareto_front_spea2(
     p_migration: float = 0.10,
     patience: int = 5,
     seed: int = 0,
+    initial_cache: dict[frozenset, DesignPoint] | None = None,
 ) -> list[DesignPoint]:
     """
     COLE-style multi-objective evolutionary (SPEA2) exploration of the ASI
@@ -388,12 +394,17 @@ def explore_pareto_front_spea2(
     hypervolume hasn't meaningfully improved for `patience` consecutive
     generations, or when `max_iterations` generations have run -- whichever
     comes first.
+
+    initial_cache seeds global_cache on a fresh (non-resumed) start -- e.g.
+    with screening.screen_param_space's cache, so the baseline and any
+    already-evaluated points it found are reused instead of re-run. Ignored
+    when resuming a saved search, which already has its own global_cache.
     """
     loaded = Spea2SearchState.load(outputdir)
     resumable = loaded is not None and loaded.matches(reference_config, benchmarks, alpha)
     if loaded is not None and not resumable:
         print(f"Saved search state at {state_path(outputdir)} doesn't match this "
-              f"run's config/command/alpha — starting fresh.\n")
+              f"run's config/command/alpha/param-space — starting fresh.\n")
 
     if resumable:
         state = loaded
@@ -402,49 +413,39 @@ def explore_pareto_front_spea2(
         print(f"Resuming SPEA2 search from generation {state.generation} "
               f"(found {state_path(outputdir)})\n")
     else:
-        print("Running baseline...")
-        baseline_dir = outputdir / "baseline"
-        areas: list[float] = []
-        powers: list[float] = []
-        per_benchmark: dict[str, dict[str, float]] = {}
-        for name, bench_cmd in benchmarks.items():
-            try:
-                area, peak_power, time = run(reference_config, sniper, baseline_dir / name, bench_cmd, {})
-            except Exception as exc:
-                raise RuntimeError(f"Baseline run failed ({name}): {exc}") from exc
-            areas.append(area)
-            powers.append(peak_power)
-            per_benchmark[name] = {"time": time, "speedup": 1.0}
-
-        baseline = DesignPoint(
-            params={}, area=sum(areas) / len(areas), peak_power=sum(powers) / len(powers),
-            time=sum(d["time"] for d in per_benchmark.values()) / len(per_benchmark),
-            asi=1.0, speedup=1.0, modified_params=set(), output_path=baseline_dir,
-            per_benchmark=per_benchmark,
-        )
+        global_cache: dict[frozenset, DesignPoint] = dict(initial_cache) if initial_cache else {}
+        baseline_key = params_key({})
+        if baseline_key in global_cache:
+            baseline = global_cache[baseline_key]
+            print(f"Using baseline from pre-evaluation screening cache ({len(global_cache)} cached point"
+                  f"{'s' if len(global_cache) != 1 else ''}).")
+        else:
+            print("Running baseline...")
+            baseline_dir = outputdir / "baseline"
+            baseline = compute_baseline(reference_config, sniper, baseline_dir, benchmarks)
+            global_cache[baseline_key] = baseline
         print(f"  Area={baseline.area:.2f} mm²  PeakPow={baseline.peak_power:.2f} W")
-        for name, d in per_benchmark.items():
+        for name, d in baseline.per_benchmark.items():
             print(f"    {name}: Time={d['time']:.0f} ns")
         print()
 
         rng = random.Random(seed)
-        global_cache: dict[frozenset, DesignPoint] = {params_key({}): baseline}
 
         print(f"=== Generation 0 (initializing {num_populations} populations "
               f"of {population_size} entities) ===")
         populations: list[list[DesignPoint]] = []
+        runs_this_gen = 0
         for pop_idx in range(num_populations):
-            # Seed with the baseline (analogous to COLE seeding -O1/-O2/-O3/-Os)
-            # so the search has a known-good starting point, then fill the
-            # rest of the population with random entities.
             entity_params = [{}] + [_random_entity(rng) for _ in range(population_size - 1)]
             pop_points = []
             for ent_idx, params in enumerate(entity_params):
                 out = outputdir / f"gen0_pop{pop_idx}_ent{ent_idx}"
-                point = _evaluate_entity(
+                point, ran = _evaluate_entity(
                     params, out, reference_config, sniper, benchmarks, baseline, alpha, global_cache,
                     prefix=f"[pop{pop_idx}] ",
                 )
+                if ran:
+                    runs_this_gen += 1
                 if point is not None:
                     pop_points.append(point)
             populations.append(pop_points)
@@ -454,18 +455,21 @@ def explore_pareto_front_spea2(
             for pop in populations
         ]
         pareto_front = update_pareto_front([], [p for arc in archives for p in arc])
-        hv_history = [_hypervolume(pareto_front)]
+        hv_history = [hypervolume(pareto_front)]
 
         state = Spea2SearchState(
             reference_config=str(reference_config), benchmarks=benchmarks, alpha=alpha, generation=0,
             baseline=baseline, global_cache=global_cache, populations=populations,
-            archives=archives, pareto_front=pareto_front, hv_history=hv_history,
-            rng_state=rng_state_to_json(rng),
+            archives=archives, pareto_front=pareto_front, pareto_front_history=[list(pareto_front)],
+            hv_history=hv_history, rng_state=rng_state_to_json(rng), sniper_runs=runs_this_gen,
+            param_space=PARAM_SPACE,
         )
         state.save(outputdir)
         print(f"\n  Combined Pareto front after generation 0 "
               f"({len(state.pareto_front)} points, HV={hv_history[-1]:.4f}):")
         print_pareto_table(state.pareto_front)
+        print(f"  Ran sniper {runs_this_gen} time{'s' if runs_this_gen != 1 else ''} this generation "
+              f"({state.sniper_runs} total).")
         print()
 
     baseline_dir = state.baseline.output_path
@@ -486,19 +490,23 @@ def explore_pareto_front_spea2(
             next_populations.append(children)
 
         evaluated_populations: list[list[DesignPoint]] = []
+        runs_this_gen = 0
         for pop_idx, entity_params in enumerate(next_populations):
             print(f"  Evaluating population {pop_idx} ({len(entity_params)} entities)...")
             pop_points = []
             for ent_idx, params in enumerate(entity_params):
                 out = outputdir / f"gen{generation}_pop{pop_idx}_ent{ent_idx}"
-                point = _evaluate_entity(
+                point, ran = _evaluate_entity(
                     params, out, reference_config, sniper, state.benchmarks, state.baseline, alpha, state.global_cache,
                     prefix=f"[pop{pop_idx}] ",
                 )
+                if ran:
+                    runs_this_gen += 1
                 if point is not None:
                     pop_points.append(point)
             evaluated_populations.append(pop_points)
         state.populations = evaluated_populations
+        state.sniper_runs += runs_this_gen
 
         state.archives = [
             _environmental_selection(state.populations[i], state.archives[i], archive_size)
@@ -506,7 +514,8 @@ def explore_pareto_front_spea2(
         ]
 
         state.pareto_front = update_pareto_front([], [p for arc in state.archives for p in arc])
-        hv = _hypervolume(state.pareto_front)
+        state.pareto_front_history.append(list(state.pareto_front))
+        hv = hypervolume(state.pareto_front)
         state.hv_history.append(hv)
 
         live_dirs = _live_output_dirs(state, baseline_dir)
@@ -518,6 +527,8 @@ def explore_pareto_front_spea2(
         print(f"\n  Combined Pareto front after generation {generation} "
               f"({len(state.pareto_front)} points, HV={hv:.4f}):")
         print_pareto_table(state.pareto_front)
+        print(f"  Ran sniper {runs_this_gen} time{'s' if runs_this_gen != 1 else ''} this generation "
+              f"({state.sniper_runs} total).")
         print()
 
         state.generation = generation
@@ -533,5 +544,17 @@ def explore_pareto_front_spea2(
     n = cleanup_dirs(all_cached_dirs - live_dirs)
     if n:
         print(f"Final cleanup: removed {n} stale output director{'y' if n == 1 else 'ies'}.")
+
+    print(f"Total sniper runs: {state.sniper_runs}")
+    print(f"Final hypervolume: {hypervolume(state.pareto_front):.4f}\n")
+
+    plot_pareto_fronts_on_asi(
+        state.pareto_front_history, title="ASI Pareto Fronts by Generation",
+        save_path=outputdir / "pareto_history.png", show=False,
+    )
+    plot_pareto_front_on_asi(
+        state.pareto_front, title="Final ASI Pareto Front",
+        save_path=outputdir / "pareto_final.png", show=False,
+    )
 
     return state.pareto_front

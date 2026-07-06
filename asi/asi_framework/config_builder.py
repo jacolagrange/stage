@@ -1,6 +1,6 @@
 """
 Config Builder Module for the Architectural Search Interface (ASI).
-Translates design exploration parameter sets directly into Sniper 
+Translates design exploration parameter sets directly into Sniper
 command-line configuration override flags.
 """
 
@@ -9,7 +9,7 @@ from typing import List, Optional
 from .config import (
     DEFAULT_BRANCH_PREDICTOR_TYPE, DEFAULT_NUM_HISTORY_REGISTERS, DEFAULT_CORE_TYPE,
     DEFAULT_BRANCH_PREDICTOR_SIZE, DEFAULT_NN_BATCH_LENGTH, DEFAULT_NN_LEARNING_RATE,
-    DEFAULT_ROB_WINDOW_SIZE, DEFAULT_ROB_DISPATCH_WIDTH, DEFAULT_ROB_RS_ENTRIES,
+    DEFAULT_ROB_WINDOW_SIZE, DEFAULT_ROB_DISPATCH_WIDTH,
     DEFAULT_ROB_OUTSTANDING_LOADS, DEFAULT_ROB_OUTSTANDING_STORES, DEFAULT_ROB_COMMIT_WIDTH,
     DEFAULT_ROB_IN_ORDER, DEFAULT_ROB_STORE_TO_LOAD_FORWARDING, DEFAULT_ROB_ADDRESS_DISAMBIGUATION,
     DEFAULT_ROB_ISSUE_CONTENTION, DEFAULT_ROB_MLP_HISTOGRAM, DEFAULT_ROB_ISSUE_MEMOPS_AT_ISSUE,
@@ -61,6 +61,9 @@ BRANCH_PREDICTOR_TYPE_KNOBS: dict[str, dict[str, tuple[str, object]]] = {
 # window_size/dispatch_width are the ROB's actual size and dispatch width, but
 # live under perf_model/core/interval_timer (shared with the interval core
 # model); the rest are perf_model/core/rob_timer-only.
+# rob_rs_entries is deliberately absent from params/SNIPER_ROB_DEFAULTS
+# below -- it's not an independent search knob. It's always derived as half of
+# the (possibly search-chosen) rob_window_size, right before this map is walked.
 SNIPER_ROB_KNOB_MAP = {
     "rob_window_size": "perf_model/core/interval_timer/window_size",
     "rob_dispatch_width": "perf_model/core/interval_timer/dispatch_width",
@@ -88,7 +91,6 @@ SNIPER_ROB_KNOB_MAP = {
 SNIPER_ROB_DEFAULTS = {
     "rob_window_size": DEFAULT_ROB_WINDOW_SIZE,
     "rob_dispatch_width": DEFAULT_ROB_DISPATCH_WIDTH,
-    "rob_rs_entries": DEFAULT_ROB_RS_ENTRIES,
     "rob_outstanding_loads": DEFAULT_ROB_OUTSTANDING_LOADS,
     "rob_outstanding_stores": DEFAULT_ROB_OUTSTANDING_STORES,
     "rob_commit_width": DEFAULT_ROB_COMMIT_WIDTH,
@@ -104,8 +106,6 @@ SNIPER_ROB_DEFAULTS = {
 def build_runtime_config(
     reference_config: str,
     *,
-    cores: Optional[int] = None,
-    core_model: Optional[str] = None,
     core_type: Optional[str] = DEFAULT_CORE_TYPE,
     frequency: Optional[float] = None,
     logical_cpus: Optional[int] = None,
@@ -120,19 +120,17 @@ def build_runtime_config(
     branch_predictor_type: Optional[str] = DEFAULT_BRANCH_PREDICTOR_TYPE,
     branch_predictor_size: Optional[int] = None,
     num_history_registers: Optional[int] = None,
-    rob_rs_entries: Optional[int] = None,
     rob_outstanding_loads: Optional[int] = None,
     rob_outstanding_stores: Optional[int] = None,
     **kwargs,
 ) -> List[str]:
     """
-    Transforms dictionary keyword configurations passed during the exploration 
+    Transforms dictionary keyword configurations passed during the exploration
     search loops into a flat list of terminal flags.
-    Options that are omitted or passed as None are skipped entirely, allowing 
+    Options that are omitted or passed as None are skipped entirely, allowing
     the base 'reference_config' defaults to cleanly fall through.
     """
-    # Create explicit local arguments dictionary mapping parameter names to values
-    local_arguments = {
+    params = {
         "core_type": core_type,
         "frequency": frequency,
         "logical_cpus": logical_cpus,
@@ -147,18 +145,16 @@ def build_runtime_config(
         "branch_predictor_type": branch_predictor_type,
         "branch_predictor_size": branch_predictor_size,
         "num_history_registers": num_history_registers,
-        "rob_rs_entries": rob_rs_entries,
         "rob_outstanding_loads": rob_outstanding_loads,
         "rob_outstanding_stores": rob_outstanding_stores,
     }
-    # Include any extra catch-all items from kwargs
-    local_arguments.update(kwargs)
-    
+    params.update(kwargs)
+
     override_flags: List[str] = []
 
     # 1. Process Standard Core/Cache/Branch Predictor Knobs
-    for algorithm_param, sniper_path in SNIPER_KNOB_MAP.items():
-        value = local_arguments.get(algorithm_param)
+    for param, sniper_path in SNIPER_KNOB_MAP.items():
+        value = params.get(param)
         if value is not None:
             override_flags.extend(["-c", f"{sniper_path}={value}"])
 
@@ -167,8 +163,8 @@ def build_runtime_config(
     # unconditionally once that type is selected, and the ASI reference
     # configs (written for pentium_m) don't define a53's/nn's own keys.
     resolved_bp_type = branch_predictor_type or DEFAULT_BRANCH_PREDICTOR_TYPE
-    for algorithm_param, (sniper_path, default) in BRANCH_PREDICTOR_TYPE_KNOBS.get(resolved_bp_type, {}).items():
-        value = local_arguments.get(algorithm_param)
+    for param, (sniper_path, default) in BRANCH_PREDICTOR_TYPE_KNOBS.get(resolved_bp_type, {}).items():
+        value = params.get(param)
         if value is None:
             value = default
         override_flags.extend(["-c", f"{sniper_path}={value}"])
@@ -181,10 +177,17 @@ def build_runtime_config(
     # SNIPER_ROB_DEFAULTS when the search didn't specify a value.
     resolved_type = core_type or ""
     if resolved_type.lower() == "rob" or core_type is None:
-        for algorithm_param, sniper_path in SNIPER_ROB_KNOB_MAP.items():
-            value = local_arguments.get(algorithm_param)
+        # rob_rs_entries isn't independently tunable -- it's sized off
+        # whichever rob_window_size actually applies (search-chosen or default).
+        resolved_window_size = params.get("rob_window_size")
+        if resolved_window_size is None:
+            resolved_window_size = SNIPER_ROB_DEFAULTS["rob_window_size"]
+        params["rob_rs_entries"] = resolved_window_size // 2
+
+        for param, sniper_path in SNIPER_ROB_KNOB_MAP.items():
+            value = params.get(param)
             if value is None:
-                value = SNIPER_ROB_DEFAULTS[algorithm_param]
+                value = SNIPER_ROB_DEFAULTS[param]
             # Convert boolean values to config strings if present
             if isinstance(value, bool):
                 value = str(value).lower()

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ' *)",
+      "Bash(python3 /tmp/claude-1000/-home-jaco-school-stage/7994c25c-688b-459e-82dd-95520d39ab1f/scratchpad/smoke_test_mesmo2.py)"
+    ]
+  }
+}
