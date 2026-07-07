@@ -131,3 +131,51 @@ def plot_pareto_fronts_on_asi(
 
     ax.legend(loc="upper right", framealpha=0.95)
     _finish(fig, ax, title, save_path, show)
+
+
+def plot_hv_vs_simulations(
+    sim_history: list[int],
+    hv_history: list[float],
+    title: str = "Hypervolume vs. Simulations",
+    save_path: Path | None = None,
+    show: bool = True,
+) -> None:
+    """
+    Pareto-front hypervolume (see greedy.hypervolume) against the cumulative
+    number of *real* Sniper simulations spent to reach it -- the number every
+    strategy's search actually costs, as opposed to iteration/generation
+    count, which means something different for each strategy (mesmo's
+    default batch_size=1 spends exactly one simulation per iteration, so its
+    curve is a near-continuous per-simulation trace; greedy's iterations and
+    spea2's generations each evaluate a whole batch of configurations before
+    the front -- and hence hv_history -- updates again, so both show up here
+    as flat plateaus followed by a jump). Drawn as a step function
+    (`where="post"`) since hv_history only actually changes at those jump
+    points -- interpolating between them would imply progress that didn't
+    happen. `sim_history`/`hv_history` are the parallel lists each search
+    strategy checkpoints in its own resumable state (GreedySearchState.
+    sim_history/hv_history, etc.), one pair of entries per iteration/
+    generation, both starting at the pre-search state (0 simulations, the
+    baseline-only front).
+    """
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.step(sim_history, hv_history, where="post", color="#6f42c1", linewidth=1.75, zorder=3)
+    ax.scatter(sim_history, hv_history, color="#6f42c1", edgecolors="black", s=28, zorder=4)
+
+    ax.set_xlabel("Cumulative real Sniper simulations", fontsize=12)
+    ax.set_ylabel("Hypervolume", fontsize=12)
+    ax.set_title(title, fontsize=14, pad=12)
+    ax.grid(True, linestyle=":", alpha=0.5)
+    ax.set_xlim(left=0)
+
+    plt.tight_layout()
+
+    if save_path is not None:
+        save_path = Path(save_path)
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        print(f"Plot saved → {save_path}")
+
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)

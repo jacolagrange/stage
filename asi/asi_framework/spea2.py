@@ -23,14 +23,14 @@ from typing import Any, ClassVar
 
 from .models import DesignPoint
 from .config import (
-    PARAM_SPACE, DEFAULT_ALPHA, DEFAULTS, DEFAULT_BRANCH_PREDICTOR_TYPE,
+    PARAM_SPACE, DEFAULT_ALPHA, DEFAULT_REF_ASI, DEFAULTS, DEFAULT_BRANCH_PREDICTOR_TYPE,
     BRANCH_PREDICTOR_PARAMS, CONDITIONAL_PARAMS, active_params,
 )
 from .greedy import (
     evaluate_point, dominates, update_pareto_front, print_pareto_table,
-    print_evaluated_point, params_key, compute_baseline, hypervolume,
+    print_evaluated_point, params_key, compute_baseline, compute_reference_asi, hypervolume,
 )
-from .plot import plot_pareto_front_on_asi, plot_pareto_fronts_on_asi
+from .plot import plot_pareto_front_on_asi, plot_pareto_fronts_on_asi, plot_hv_vs_simulations
 from .state import (
     point_to_dict, point_from_dict, state_path, write_json_atomic, read_raw_state,
     cleanup_dirs, rng_state_to_json, rng_state_from_json,
@@ -249,9 +249,11 @@ class Spea2SearchState:
     pareto_front: list[DesignPoint]
     pareto_front_history: list[list[DesignPoint]]
     hv_history: list[float]
+    sim_history: list[int]
     rng_state: list
     sniper_runs: int
     param_space: dict[str, list]
+    ref_asi: float
 
     def matches(self, reference_config: str, benchmarks: dict[str, list[str]], alpha: float) -> bool:
         """Also checked against the live PARAM_SPACE: only generation 0 samples
@@ -282,9 +284,11 @@ class Spea2SearchState:
             "pareto_front": [point_to_dict(p) for p in self.pareto_front],
             "pareto_front_history": [[point_to_dict(p) for p in front] for front in self.pareto_front_history],
             "hv_history": self.hv_history,
+            "sim_history": self.sim_history,
             "rng_state": self.rng_state,
             "sniper_runs": self.sniper_runs,
             "param_space": self.param_space,
+            "ref_asi": self.ref_asi,
         }
 
     @classmethod
@@ -303,9 +307,11 @@ class Spea2SearchState:
                 [point_from_dict(x) for x in front] for front in d.get("pareto_front_history", [])
             ],
             hv_history=d["hv_history"],
+            sim_history=d.get("sim_history", []),
             rng_state=d["rng_state"],
             sniper_runs=d.get("sniper_runs", 0),
             param_space=d.get("param_space", {}),
+            ref_asi=d.get("ref_asi", 0.0),
         )
 
     def save(self, outputdir: Path) -> None:
@@ -363,6 +369,7 @@ def explore_pareto_front_spea2(
     p_migration: float = 0.10,
     patience: int = 5,
     seed: int = 0,
+    compute_ref_asi: bool = False,
     initial_cache: dict[frozenset, DesignPoint] | None = None,
 ) -> list[DesignPoint]:
     """
@@ -399,6 +406,12 @@ def explore_pareto_front_spea2(
     with screening.screen_param_space's cache, so the baseline and any
     already-evaluated points it found are reused instead of re-run. Ignored
     when resuming a saved search, which already has its own global_cache.
+
+    compute_ref_asi controls how the hypervolume reference point (ref_asi)
+    is obtained on a fresh start: False (default) uses config.DEFAULT_REF_ASI,
+    a precomputed constant valid only for the shipped param_space.json at
+    DEFAULT_ALPHA; True recomputes it for real (up to 4 extra Sniper
+    simulations) against whatever PARAM_SPACE/alpha this run is using.
     """
     loaded = Spea2SearchState.load(outputdir)
     resumable = loaded is not None and loaded.matches(reference_config, benchmarks, alpha)
@@ -429,6 +442,17 @@ def explore_pareto_front_spea2(
             print(f"    {name}: Time={d['time']:.0f} ns")
         print()
 
+        if compute_ref_asi:
+            print("Computing hypervolume reference point (worst-case ASI per branch predictor)...")
+            ref_asi = compute_reference_asi(
+                reference_config, sniper, outputdir, benchmarks, baseline, alpha, global_cache, PARAM_SPACE,
+            )
+            print(f"  ref_asi = {ref_asi:.4f}\n")
+        else:
+            ref_asi = DEFAULT_REF_ASI
+            print(f"Using precomputed hypervolume reference point ref_asi={ref_asi:.4f} "
+                  f"(pass --compute-ref-asi to recompute it for this PARAM_SPACE/alpha).\n")
+
         rng = random.Random(seed)
 
         print(f"=== Generation 0 (initializing {num_populations} populations "
@@ -455,14 +479,15 @@ def explore_pareto_front_spea2(
             for pop in populations
         ]
         pareto_front = update_pareto_front([], [p for arc in archives for p in arc])
-        hv_history = [hypervolume(pareto_front)]
+        hv_history = [hypervolume([baseline], ref_asi=ref_asi), hypervolume(pareto_front, ref_asi=ref_asi)]
+        sim_history = [0, runs_this_gen]
 
         state = Spea2SearchState(
             reference_config=str(reference_config), benchmarks=benchmarks, alpha=alpha, generation=0,
             baseline=baseline, global_cache=global_cache, populations=populations,
             archives=archives, pareto_front=pareto_front, pareto_front_history=[list(pareto_front)],
-            hv_history=hv_history, rng_state=rng_state_to_json(rng), sniper_runs=runs_this_gen,
-            param_space=PARAM_SPACE,
+            hv_history=hv_history, sim_history=sim_history, rng_state=rng_state_to_json(rng),
+            sniper_runs=runs_this_gen, param_space=PARAM_SPACE, ref_asi=ref_asi,
         )
         state.save(outputdir)
         print(f"\n  Combined Pareto front after generation 0 "
@@ -515,8 +540,9 @@ def explore_pareto_front_spea2(
 
         state.pareto_front = update_pareto_front([], [p for arc in state.archives for p in arc])
         state.pareto_front_history.append(list(state.pareto_front))
-        hv = hypervolume(state.pareto_front)
+        hv = hypervolume(state.pareto_front, ref_asi=state.ref_asi)
         state.hv_history.append(hv)
+        state.sim_history.append(state.sniper_runs)
 
         live_dirs = _live_output_dirs(state, baseline_dir)
         all_cached_dirs = {p.output_path for p in state.global_cache.values() if p.output_path}
@@ -546,7 +572,8 @@ def explore_pareto_front_spea2(
         print(f"Final cleanup: removed {n} stale output director{'y' if n == 1 else 'ies'}.")
 
     print(f"Total sniper runs: {state.sniper_runs}")
-    print(f"Final hypervolume: {hypervolume(state.pareto_front):.4f}\n")
+    print(f"Final hypervolume: {hypervolume(state.pareto_front, ref_asi=state.ref_asi):.4f} "
+          f"(ref_asi={state.ref_asi:.4f})\n")
 
     plot_pareto_fronts_on_asi(
         state.pareto_front_history, title="ASI Pareto Fronts by Generation",
@@ -555,6 +582,10 @@ def explore_pareto_front_spea2(
     plot_pareto_front_on_asi(
         state.pareto_front, title="Final ASI Pareto Front",
         save_path=outputdir / "pareto_final.png", show=False,
+    )
+    plot_hv_vs_simulations(
+        state.sim_history, state.hv_history, title="Hypervolume vs. Simulations (spea2)",
+        save_path=outputdir / "hv_vs_sims.png", show=False,
     )
 
     return state.pareto_front
