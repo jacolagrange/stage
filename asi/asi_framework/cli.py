@@ -63,6 +63,16 @@ def build_parser() -> argparse.ArgumentParser:
                              "/ BO iterations (mesmo). Defaults to whichever strategy is selected "
                              "picking its own default (5 for greedy, 30 for spea2/mesmo) rather than "
                              "one fixed number for every strategy.")
+    parser.add_argument("--compute-ref-asi", action="store_true",
+                        help="Recompute the hypervolume reference point (ref_asi) for real: the "
+                             "worst ASI reachable by maxing out every parameter, minimized over "
+                             "every branch_predictor_type (costs up to 4 extra Sniper simulations, "
+                             "cached in search_state.json for future resumes of this outputdir). "
+                             "Off by default, which just uses config.DEFAULT_REF_ASI -- a constant "
+                             "precomputed for the shipped param_space.json at the default --alpha. "
+                             "Pass this once after editing param_space.json or changing --alpha, "
+                             "note the ref_asi it prints, and hardcode that as the new "
+                             "DEFAULT_REF_ASI for future runs instead of recomputing it every time.")
     parser.add_argument("--log", nargs="?", const="auto", metavar="PATH",
                         help="Save terminal output to PATH. Omit PATH to use outputdir/run.log.")
     parser.add_argument("--save-plot", nargs="?", const="auto", metavar="PATH",
@@ -210,6 +220,7 @@ def main() -> int:
         "outputdir": outputdir,
         "benchmarks": args.benchmarks,
         "alpha": args.alpha,
+        "compute_ref_asi": args.compute_ref_asi,
     }
     # Only forward max_iterations if the user actually passed --iterations;
     # otherwise let the chosen strategy's own function default apply (5 for

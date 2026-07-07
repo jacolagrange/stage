@@ -47,6 +47,19 @@ DEFAULT_ROB_ISSUE_MEMOPS_AT_ISSUE = "true"
 # Alpha controls the area/power trade-off in the ASI formula
 DEFAULT_ALPHA = 0.5
 
+# Hypervolume's ref_asi anchor (see greedy.compute_reference_asi and the
+# README's "Hypervolume and its reference point" section) for the shipped
+# param_space.json below, at DEFAULT_ALPHA -- i.e. the minimum, over every
+# branch_predictor_type, of the ASI reached by pushing every parameter to
+# its largest candidate value. Recomputing this costs up to 4 extra real
+# Sniper simulations per fresh search, so by default every strategy just
+# uses this precomputed constant instead (see --compute-ref-asi). It is
+# ONLY valid for this exact param_space.json/alpha combination -- if you
+# edit either, this number no longer describes "the worst point in the
+# space" and you should run once with --compute-ref-asi and swap this
+# constant for whatever it prints.
+DEFAULT_REF_ASI = -0.0112
+
 # Search space: for each parameter, the candidate values to try. Following
 # the reference ASI_exploration project's sweep-JSON convention, the first
 # value in each list is the parameter's current/baseline value; the search
