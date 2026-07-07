@@ -1,0 +1,453 @@
+Logging to /home/jaco/school/stage/asi/asi-output/run.log
+
+Benchmarks: ML2 (./libs/benchmarks/ML2/bench)
+
+Saved search state at /home/jaco/school/stage/asi/asi-output/search_state.json was written by strategy 'greedy', not 'spea2' — starting fresh.
+
+Running baseline...
+  Area=94.01 mm²  PeakPow=25.81 W
+    ML2: Time=2074134 ns
+
+=== Generation 0 (initializing 3 populations of 20 entities) ===
+  [pop0] baseline                          ASI= 1.0000  S=1.0000  A=  94.01  P= 25.81  [Reference]
+  [pop0] bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=2048 robc=2 robd=2 robw=256  ASI= 2.4889  S=0.9998  A=  42.61  P= 16.04  [Strongly Sust.]
+  [pop0] bp=2048 bpt=a53 l1da=4 l1d=32 l1ia=4 l1i=16 l2a=8 l2=256 l3a=8 l3=2048 nhist=3 robc=10 robd=8 robw=1024  ASI= 0.0082  S=1.0002  A= 152.68  P=1186.78  [Unsustainable]
+  [pop0] bp=2048 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=128 l3a=16 l3=1024 nhist=2 robc=4 robd=10 robw=128  ASI= 0.0720  S=0.9724  A=  67.03  P=461.22  [Unsustainable]
+  [pop0] bpt=nn l1da=8 l1d=32 l1ia=4 l1i=16 l2a=8 l2=512 l3a=16 l3=2048 nnbl=32 nnlr=0.0005 robc=4 robd=10 robw=1024  ASI=-0.0061  S=1.0542  A= 246.19  P=2631.75  [Unsustainable]
+  [pop0] bpt=nn l1da=8 l1d=16 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=2048 nnbl=32 nnlr=0.005 robc=10 robd=8 robw=1024  ASI= 0.0070  S=0.9991  A= 157.56  P=1187.83  [Unsustainable]
+  [pop0] bp=1024 bpt=a53 l1da=8 l1d=16 l1ia=8 l1i=16 l2a=8 l2=512 l3a=16 l3=1024 nhist=3 robc=10 robd=8 robw=256  ASI= 0.0545  S=1.0582  A=  82.16  P=533.24  [Unsustainable]
+  [pop0] bpt=nn l1da=4 l1d=32 l1ia=4 l1i=64 l2a=4 l2=256 l3a=8 l3=8192 nnbl=64 nnlr=0.0005 robc=10 robd=2 robw=1024  ASI= 0.6951  S=1.0003  A=  91.28  P= 38.21  [Unsustainable]
+  [pop0] bpt=pentium_m l1da=4 l1d=16 l1ia=4 l1i=16 l2a=8 l2=512 l3a=4 l3=2048 robc=2 robd=2 robw=1024  ASI= 1.0822  S=1.0584  A=  52.22  P= 34.45  [Strongly Sust.]
+  [pop0] bpt=tage l1da=4 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=8192 robc=4 robd=4 robw=1024  ASI= 0.1595  S=0.9748  A= 103.75  P=145.09  [Unsustainable]
+  [pop0] bpt=nn l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=256 l3a=8 l3=8192 nnbl=32 nnlr=0.0005 robc=10 robd=4 robw=256  ASI= 0.4234  S=0.9925  A=  96.86  P= 59.10  [Unsustainable]
+  [pop0] bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=512 l3a=4 l3=8192 nnbl=64 nnlr=0.0005 robc=4 robd=4 robw=512  ASI= 0.2235  S=1.0516  A= 106.00  P=100.72  [Unsustainable]
+  [pop0] bpt=tage l1da=8 l1d=32 l1ia=4 l1i=64 l2a=4 l2=128 l3a=4 l3=8192 robc=10 robd=4 robw=16  ASI= 1.1021  S=0.9732  A=  91.22  P= 24.11  [Strongly Sust.]
+  [pop0] bpt=tage l1da=4 l1d=64 l1ia=4 l1i=32 l2a=4 l2=256 l3a=8 l3=4096 robc=2 robd=2 robw=1024  ASI= 1.0149  S=1.0019  A=  58.48  P= 35.04  [Strongly Sust.]
+  [pop0] bpt=tage l1da=4 l1d=64 l1ia=8 l1i=32 l2a=8 l2=256 l3a=8 l3=1024 robc=4 robd=2 robw=512  ASI= 1.7527  S=1.0014  A=  38.40  P= 23.43  [Strongly Sust.]
+  [pop0] bp=2048 bpt=a53 l1da=4 l1d=64 l1ia=8 l1i=16 l2a=4 l2=128 l3a=16 l3=2048 nhist=3 robc=8 robd=4 robw=64  ASI= 1.9101  S=0.9747  A=  44.82  P= 20.58  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 robc=8 robd=2 robw=256  ASI= 2.7172  S=0.9997  A=  36.31  P= 15.33  [Strongly Sust.]
+  [pop0] bpt=nn l1da=8 l1d=64 l1ia=4 l1i=16 l2a=4 l2=128 l3a=16 l3=8192 nnbl=64 nnlr=0.005 robc=10 robd=10 robw=16  ASI= 0.3937  S=0.9667  A= 105.00  P= 57.89  [Unsustainable]
+  [pop0] bp=2048 bpt=a53 l1da=8 l1d=16 l1ia=8 l1i=64 l2a=8 l2=256 l3a=4 l3=4096 nhist=2 robc=10 robd=2 robw=32  ASI= 2.0128  S=0.9992  A=  59.35  P= 17.55  [Strongly Sust.]
+  [pop0] bp=2048 bpt=a53 l1da=4 l1d=64 l1ia=8 l1i=64 l2a=4 l2=256 l3a=4 l3=8192 nhist=4 robc=2 robd=10 robw=1024  ASI=-0.0097  S=1.0021  A= 281.13  P=2635.52  [Unsustainable]
+  [pop1] baseline                          ASI= 1.0000  S=1.0000  A=  94.01  P= 25.81  [Reference]
+  [pop1] bpt=nn l1da=4 l1d=64 l1ia=8 l1i=32 l2a=4 l2=256 l3a=16 l3=8192 nnbl=32 nnlr=0.001 robc=4 robd=4 robw=128  ASI= 1.0202  S=0.9998  A=  91.11  P= 26.08  [Strongly Sust.]
+  [pop1] bpt=tage l1da=8 l1d=64 l1ia=8 l1i=64 l2a=8 l2=256 l3a=4 l3=2048 robc=4 robd=4 robw=512  ASI= 0.3714  S=1.0013  A=  58.64  P= 95.63  [Unsustainable]
+  [pop1] bpt=pentium_m l1da=4 l1d=16 l1ia=4 l1i=16 l2a=8 l2=256 l3a=16 l3=2048 robc=4 robd=4 robw=1024  ASI= 0.2477  S=0.9995  A=  61.12  P=140.65  [Unsustainable]
+  [pop1] bpt=tage l1da=4 l1d=32 l1ia=8 l1i=32 l2a=8 l2=512 l3a=8 l3=2048 robc=10 robd=10 robw=512  ASI= 0.0096  S=1.0591  A= 137.99  P=1434.03  [Unsustainable]
+  [pop1] bpt=nn l1da=4 l1d=64 l1ia=8 l1i=16 l2a=8 l2=256 l3a=16 l3=1024 nnbl=16 nnlr=0.005 robc=8 robd=8 robw=32  ASI= 0.9561  S=0.9984  A=  49.89  P= 39.66  [Unsustainable]
+  [pop1] bpt=pentium_m l1da=4 l1d=16 l1ia=4 l1i=32 l2a=8 l2=512 l3a=16 l3=8192 robc=2 robd=10 robw=32  ASI= 0.3471  S=1.0582  A= 109.70  P= 61.95  [Unsustainable]
+  [pop1] bp=512 bpt=a53 l1da=4 l1d=32 l1ia=4 l1i=16 l2a=8 l2=128 l3a=8 l3=1024 nhist=2 robc=8 robd=10 robw=32  ASI= 0.6879  S=0.9731  A=  50.23  P= 54.98  [Unsustainable]
+  [pop1] bpt=tage l1da=4 l1d=32 l1ia=8 l1i=32 l2a=4 l2=512 l3a=16 l3=4096 robc=10 robd=10 robw=128  ASI= 0.0566  S=1.0590  A=  92.12  P=465.00  [Unsustainable]
+  [pop1] bp=512 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=1024 nhist=3 robc=4 robd=2 robw=16  ASI= 3.0554  S=0.9723  A=  35.08  P= 13.74  [Strongly Sust.]
+  [pop1] bp=2048 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=32 l2a=8 l2=512 l3a=4 l3=2048 nhist=3 robc=8 robd=2 robw=32  ASI= 2.2748  S=1.0582  A=  49.49  P= 16.72  [Strongly Sust.]
+  [pop1] bpt=nn l1da=8 l1d=32 l1ia=4 l1i=16 l2a=4 l2=128 l3a=8 l3=8192 nnbl=16 nnlr=0.001 robc=10 robd=10 robw=128  ASI= 0.0403  S=0.9723  A= 119.52  P=466.45  [Unsustainable]
+  [pop1] bpt=pentium_m l1da=8 l1d=32 l1ia=4 l1i=64 l2a=4 l2=256 l3a=4 l3=1024 robc=4 robd=2 robw=256  ASI= 2.6820  S=1.0003  A=  39.32  P= 15.22  [Strongly Sust.]
+  [pop1] bpt=tage l1da=4 l1d=16 l1ia=8 l1i=64 l2a=4 l2=256 l3a=4 l3=4096 robc=2 robd=2 robw=512  ASI= 1.4030  S=0.9997  A=  57.19  P= 25.60  [Strongly Sust.]
+  [pop1] bpt=nn l1da=8 l1d=16 l1ia=8 l1i=32 l2a=8 l2=512 l3a=4 l3=2048 nnbl=64 nnlr=0.005 robc=8 robd=10 robw=1024  ASI=-0.0062  S=1.0560  A= 247.05  P=2632.38  [Unsustainable]
+  [pop1] bpt=pentium_m l1da=8 l1d=32 l1ia=4 l1i=16 l2a=8 l2=256 l3a=16 l3=8192 robc=8 robd=10 robw=128  ASI= 0.0394  S=1.0001  A= 121.01  P=466.85  [Unsustainable]
+  [pop1] bp=1024 bpt=a53 l1da=4 l1d=32 l1ia=8 l1i=32 l2a=8 l2=512 l3a=8 l3=4096 nhist=2 robc=10 robd=4 robw=512  ASI= 0.3242  S=1.0589  A=  72.38  P= 97.92  [Unsustainable]
+  [pop1] bp=2048 bpt=a53 l1da=8 l1d=64 l1ia=8 l1i=64 l2a=8 l2=128 l3a=8 l3=4096 nhist=4 robc=8 robd=2 robw=512  ASI= 1.3496  S=0.9745  A=  61.01  P= 25.84  [Strongly Sust.]
+  [pop1] bpt=tage l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=4096 robc=2 robd=2 robw=128  ASI= 2.0952  S=0.9998  A=  54.93  P= 17.44  [Strongly Sust.]
+  [pop1] bpt=nn l1da=8 l1d=16 l1ia=4 l1i=32 l2a=4 l2=512 l3a=4 l3=2048 nnbl=16 nnlr=0.0005 robc=2 robd=4 robw=64  ASI= 1.7006  S=1.0562  A=  54.09  P= 21.62  [Strongly Sust.]
+  [pop2] baseline                          ASI= 1.0000  S=1.0000  A=  94.01  P= 25.81  [Reference]
+  [pop2] bpt=nn l1da=8 l1d=64 l1ia=8 l1i=32 l2a=8 l2=128 l3a=4 l3=4096 nnbl=64 nnlr=0.0005 robc=2 robd=4 robw=128  ASI= 1.5037  S=0.9744  A=  62.24  P= 22.96  [Strongly Sust.]
+  [pop2] bp=2048 bpt=a53 l1da=4 l1d=64 l1ia=4 l1i=32 l2a=4 l2=512 l3a=16 l3=2048 nhist=3 robc=8 robd=10 robw=256  ASI= 0.0240  S=1.0606  A= 100.93  P=994.07  [Unsustainable]
+  [pop2] bp=512 bpt=a53 l1da=4 l1d=64 l1ia=4 l1i=64 l2a=4 l2=512 l3a=8 l3=2048 nhist=2 robc=4 robd=2 robw=256  ASI= 2.3260  S=1.0604  A=  47.11  P= 16.63  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=8 l1d=32 l1ia=4 l1i=16 l2a=8 l2=128 l3a=4 l3=2048 robc=2 robd=2 robw=128  ASI= 2.5681  S=0.9731  A=  44.38  P= 15.35  [Strongly Sust.]
+  [pop2] bpt=tage l1da=8 l1d=64 l1ia=8 l1i=32 l2a=8 l2=512 l3a=4 l3=4096 robc=10 robd=4 robw=128  ASI= 1.3257  S=1.0607  A=  69.95  P= 24.45  [Strongly Sust.]
+  [pop2] bpt=tage l1da=4 l1d=32 l1ia=4 l1i=32 l2a=4 l2=128 l3a=8 l3=1024 robc=8 robd=10 robw=128  ASI= 0.0741  S=0.9731  A=  63.78  P=460.56  [Unsustainable]
+  [pop2] bp=1024 bpt=a53 l1da=8 l1d=16 l1ia=4 l1i=64 l2a=4 l2=256 l3a=8 l3=2048 nhist=3 robc=2 robd=8 robw=32  ASI= 0.9133  S=0.9997  A=  54.66  P= 40.08  [Unsustainable]
+  [pop2] bp=512 bpt=a53 l1da=8 l1d=32 l1ia=4 l1i=16 l2a=8 l2=512 l3a=8 l3=1024 nhist=4 robc=8 robd=4 robw=512  ASI= 0.3822  S=1.0586  A=  55.31  P= 95.33  [Unsustainable]
+  [pop2] bpt=pentium_m l1da=4 l1d=64 l1ia=4 l1i=32 l2a=8 l2=256 l3a=4 l3=1024 robc=2 robd=8 robw=512  ASI= 0.0343  S=1.0015  A=  93.13  P=758.95  [Unsustainable]
+  [pop2] bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=32 l2a=4 l2=128 l3a=8 l3=2048 robc=4 robd=4 robw=16  ASI= 2.0345  S=0.9732  A=  42.84  P= 19.59  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=8 l1d=64 l1ia=8 l1i=64 l2a=8 l2=128 l3a=16 l3=1024 robc=2 robd=2 robw=256  ASI= 2.5664  S=0.9745  A=  42.23  P= 15.59  [Strongly Sust.]
+  [pop2] bp=512 bpt=a53 l1da=8 l1d=16 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=4096 nhist=2 robc=2 robd=4 robw=512  ASI= 0.3481  S=0.9724  A=  66.10  P= 96.15  [Unsustainable]
+  [pop2] bpt=nn l1da=4 l1d=16 l1ia=8 l1i=64 l2a=4 l2=512 l3a=16 l3=1024 nnbl=16 nnlr=0.0005 robc=4 robd=8 robw=64  ASI= 0.8593  S=1.0562  A=  56.89  P= 41.89  [Unsustainable]
+  [pop2] bpt=tage l1da=8 l1d=16 l1ia=8 l1i=32 l2a=4 l2=512 l3a=4 l3=2048 robc=4 robd=2 robw=128  ASI= 2.1297  S=1.0582  A=  52.87  P= 17.42  [Strongly Sust.]
+  [pop2] bpt=tage l1da=4 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=4 l3=1024 robc=10 robd=2 robw=16  ASI= 2.5287  S=1.0589  A=  42.29  P= 15.82  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=8 l1d=64 l1ia=8 l1i=16 l2a=4 l2=256 l3a=16 l3=2048 robc=10 robd=10 robw=128  ASI= 0.0655  S=1.0020  A=  77.65  P=462.78  [Unsustainable]
+  [pop2] bpt=tage l1da=8 l1d=32 l1ia=8 l1i=32 l2a=4 l2=128 l3a=8 l3=8192 robc=2 robd=10 robw=128  ASI= 0.0391  S=0.9733  A= 121.48  P=467.14  [Unsustainable]
+  [pop2] bpt=pentium_m l1da=4 l1d=16 l1ia=4 l1i=64 l2a=8 l2=128 l3a=16 l3=8192 robc=10 robd=10 robw=64  ASI= 0.3715  S=0.9724  A= 103.50  P= 62.46  [Unsustainable]
+  [pop2] bp=2048 bpt=a53 l1da=8 l1d=64 l1ia=8 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=2 robc=8 robd=8 robw=1024  ASI= 0.0066  S=0.9747  A= 159.49  P=1187.69  [Unsustainable]
+
+  Combined Pareto front after generation 0 (6 points, HV=3.1989):
+  Params                                  ASI  Speedup     Area  PeakPow  Region
+  ──────────────────────────────────────────────────────────────────────────────
+  bpt=tage l1da=8 l1d=64 l1ia=8 l1i=32 l2a=8 l2=512 l3a=4 l3=4096 robc=10 robd=4 robw=128   1.3257   1.0607    69.95    24.45  Strongly Sust.
+  bp=512 bpt=a53 l1da=4 l1d=64 l1ia=4 l1i=64 l2a=4 l2=512 l3a=8 l3=2048 nhist=2 robc=4 robd=2 robw=256   2.3260   1.0604    47.11    16.63  Strongly Sust.
+  bpt=tage l1da=4 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=4 l3=1024 robc=10 robd=2 robw=16   2.5287   1.0589    42.29    15.82  Strongly Sust.
+  bpt=pentium_m l1da=8 l1d=32 l1ia=4 l1i=64 l2a=4 l2=256 l3a=4 l3=1024 robc=4 robd=2 robw=256   2.6820   1.0003    39.32    15.22  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 robc=8 robd=2 robw=256   2.7172   0.9997    36.31    15.33  Strongly Sust.
+  bp=512 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=1024 nhist=3 robc=4 robd=2 robw=16   3.0554   0.9723    35.08    13.74  Strongly Sust.
+  Ran sniper 57 times this generation (57 total).
+
+=== Generation 1 ===
+  Evaluating population 0 (20 entities)...
+  [pop0] bpt=pentium_m l1da=4 l1d=64 l1ia=4 l1i=32 l2a=4 l2=256 l3a=8 l3=4096 robc=2 robd=2 robw=1024  ASI= 1.0149  S=1.0022  A=  58.48  P= 35.04  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=2048 robc=2 robd=2 robw=256  ASI= 2.4889  S=0.9998  A=  42.61  P= 16.04  [Strongly Sust.]
+  [pop0] bp=1024 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=16 l2a=8 l2=256 l3a=16 l3=1024 nhist=3 robc=10 robd=8 robw=256  ASI= 0.0596  S=0.9993  A=  72.60  P=531.65  [Unsustainable]
+  [pop0] bpt=tage l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=2048 robc=2 robd=2 robw=512  ASI= 1.6453  S=0.9997  A=  44.10  P= 24.01  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=64 l2a=4 l2=256 l3a=16 l3=1024 robc=4 robd=10 robw=256  ASI= 0.0268  S=0.9996  A=  91.07  P=992.84  [Unsustainable]
+  [pop0] bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=32 l2a=4 l2=256 l3a=8 l3=1024 robc=2 robd=2 robw=256  ASI= 2.7164  S=0.9997  A=  36.00  P= 15.36  [Strongly Sust.]
+  [pop0] bpt=tage l1da=4 l1d=16 l1ia=8 l1i=32 l2a=4 l2=256 l3a=8 l3=2048 robc=2 robd=2 robw=256  ASI= 2.5054  S=0.9997  A=  41.21  P= 16.09  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=2048 robc=2 robd=2 robw=256  ASI= 2.4889  S=0.9998  A=  42.61  P= 16.04  [Strongly Sust.]
+  [pop0] bp=1024 bpt=a53 l1da=4 l1d=64 l1ia=8 l1i=16 l2a=8 l2=512 l3a=16 l3=1024 nhist=3 robc=10 robd=8 robw=512  ASI= 0.0308  S=1.0605  A= 102.79  P=760.82  [Unsustainable]
+  [pop0] bpt=nn l1da=8 l1d=16 l1ia=4 l1i=16 l2a=8 l2=512 l3a=4 l3=2048 nnbl=32 nnlr=0.0005 robc=2 robd=2 robw=1024  ASI= 1.0428  S=1.0523  A=  55.57  P= 34.87  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=2048 robc=2 robd=2 robw=512  ASI= 1.6353  S=1.0020  A=  44.46  P= 24.10  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=64 l2a=4 l2=512 l3a=16 l3=1024 robc=10 robd=8 robw=256  ASI= 0.0560  S=1.0582  A=  79.39  P=532.75  [Unsustainable]
+  [pop0] bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=1024 robc=2 robd=2 robw=256  ASI= 2.7203  S=1.0005  A=  35.85  P= 15.36  [Strongly Sust.]
+  [pop0] bpt=nn l1da=4 l1d=32 l1ia=4 l1i=32 l2a=8 l2=512 l3a=8 l3=1024 nnbl=64 nnlr=0.0005 robc=4 robd=4 robw=256  ASI= 0.7149  S=1.0467  A=  46.74  P= 54.25  [Unsustainable]
+  [pop0] bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=2048 robc=2 robd=2 robw=256  ASI= 2.4889  S=0.9998  A=  42.61  P= 16.04  [Strongly Sust.]
+  [pop0] bpt=tage l1da=4 l1d=32 l1ia=4 l1i=16 l2a=8 l2=256 l3a=16 l3=4096 robc=4 robd=10 robw=1024  ASI=-0.0062  S=1.0002  A= 247.74  P=2631.74  [Unsustainable]
+  [pop0] bpt=tage l1da=4 l1d=16 l1ia=4 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 robc=8 robd=2 robw=256  ASI= 2.8511  S=0.9997  A=  34.86  P= 14.75  [Strongly Sust.]
+  [pop0] bpt=tage l1da=4 l1d=16 l1ia=8 l1i=32 l2a=8 l2=256 l3a=8 l3=1024 robc=8 robd=2 robw=256  ASI= 2.7049  S=0.9992  A=  36.54  P= 15.37  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 robc=10 robd=2 robw=16  ASI= 2.8417  S=1.0004  A=  36.18  P= 14.67  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=16 l1ia=4 l1i=16 l2a=8 l2=256 l3a=8 l3=2048 robc=8 robd=2 robw=1024  ASI= 1.1835  S=0.9994  A=  44.25  P= 33.35  [Strongly Sust.]
+  Evaluating population 1 (20 entities)...
+  [pop1] bp=1024 bpt=a53 l1da=8 l1d=32 l1ia=8 l1i=32 l2a=8 l2=256 l3a=4 l3=2048 nhist=2 robc=10 robd=4 robw=512  ASI= 0.3733  S=0.9999  A=  58.00  P= 95.61  [Unsustainable]
+  [pop1] bpt=tage l1da=4 l1d=32 l1ia=8 l1i=32 l2a=4 l2=512 l3a=16 l3=4096 robc=10 robd=10 robw=512  ASI= 0.0069  S=1.0590  A= 151.69  P=1435.58  [Unsustainable]
+  [pop1] bp=512 bpt=a53 l1da=4 l1d=32 l1ia=8 l1i=32 l2a=8 l2=512 l3a=16 l3=1024 nhist=3 robc=4 robd=2 robw=1024  ASI= 1.1000  S=1.0587  A=  49.51  P= 34.57  [Strongly Sust.]
+  [pop1] bp=1024 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=32 l2a=8 l2=512 l3a=4 l3=4096 nhist=2 robc=8 robd=2 robw=32  ASI= 1.8911  S=1.0581  A=  61.92  P= 18.30  [Strongly Sust.]
+  [pop1] bp=512 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=16 l2a=8 l2=512 l3a=16 l3=1024 nhist=3 robc=4 robd=2 robw=16  ASI= 2.6379  S=1.0581  A=  42.56  P= 15.14  [Strongly Sust.]
+  [pop1] bpt=tage l1da=4 l1d=32 l1ia=8 l1i=32 l2a=8 l2=512 l3a=8 l3=2048 robc=10 robd=10 robw=512  ASI= 0.0096  S=1.0591  A= 137.99  P=1434.03  [Unsustainable]
+  [pop1] bpt=tage l1da=4 l1d=32 l1ia=8 l1i=32 l2a=4 l2=512 l3a=8 l3=4096 robc=10 robd=4 robw=512  ASI= 0.3246  S=1.0589  A=  72.29  P= 97.87  [Unsustainable]
+  [pop1] bpt=tage l1da=4 l1d=32 l1ia=8 l1i=32 l2a=8 l2=512 l3a=8 l3=4096 robc=10 robd=4 robw=512  ASI= 0.3242  S=1.0589  A=  72.38  P= 97.92  [Unsustainable]
+  [pop1] bp=2048 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=32 l2a=8 l2=512 l3a=4 l3=2048 nhist=3 robc=4 robd=2 robw=32  ASI= 2.4063  S=1.0582  A=  47.76  P= 16.00  [Strongly Sust.]
+  [pop1] bp=512 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=32 l2a=8 l2=128 l3a=16 l3=1024 nhist=2 robc=10 robd=4 robw=16  ASI= 2.1574  S=0.9722  A=  39.54  P= 18.89  [Strongly Sust.]
+  [pop1] bp=512 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=1024 nhist=3 robc=4 robd=2 robw=16  ASI= 3.0554  S=0.9723  A=  35.08  P= 13.74  [Strongly Sust.]
+  [pop1] bpt=pentium_m l1da=8 l1d=64 l1ia=4 l1i=64 l2a=8 l2=512 l3a=16 l3=2048 robc=4 robd=4 robw=512  ASI= 0.3555  S=1.0607  A=  63.41  P= 96.22  [Unsustainable]
+  [pop1] bpt=tage l1da=4 l1d=32 l1ia=8 l1i=32 l2a=8 l2=512 l3a=8 l3=4096 robc=10 robd=10 robw=512  ASI= 0.0069  S=1.0590  A= 152.16  P=1435.61  [Unsustainable]
+  [pop1] bp=512 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=32 l2a=4 l2=128 l3a=16 l3=4096 nhist=3 robc=4 robd=2 robw=128  ASI= 2.2589  S=0.9724  A=  52.18  P= 16.51  [Strongly Sust.]
+  [pop1] bp=1024 bpt=a53 l1da=4 l1d=32 l1ia=8 l1i=32 l2a=8 l2=512 l3a=16 l3=1024 nhist=3 robc=10 robd=4 robw=512  ASI= 0.3815  S=1.0589  A=  55.10  P= 95.66  [Unsustainable]
+  [pop1] bpt=tage l1da=4 l1d=16 l1ia=4 l1i=32 l2a=4 l2=512 l3a=16 l3=4096 robc=10 robd=10 robw=128  ASI= 0.0578  S=1.0582  A=  90.20  P=464.25  [Unsustainable]
+  [pop1] bp=1024 bpt=a53 l1da=4 l1d=32 l1ia=8 l1i=32 l2a=8 l2=512 l3a=8 l3=1024 nhist=2 robc=4 robd=4 robw=512  ASI= 0.3876  S=1.0587  A=  53.02  P= 95.61  [Unsustainable]
+  [pop1] bp=512 bpt=a53 l1da=4 l1d=32 l1ia=8 l1i=32 l2a=8 l2=512 l3a=16 l3=4096 nhist=3 robc=4 robd=2 robw=16  ASI= 1.9084  S=1.0590  A=  61.63  P= 18.18  [Strongly Sust.]
+  [pop1] bp=2048 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=32 l2a=8 l2=512 l3a=4 l3=2048 nhist=3 robc=8 robd=2 robw=32  ASI= 2.2748  S=1.0582  A=  49.49  P= 16.72  [Strongly Sust.]
+  [pop1] bp=512 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=1024 nhist=3 robc=4 robd=2 robw=16  ASI= 3.0554  S=0.9723  A=  35.08  P= 13.74  [Strongly Sust.]
+  Evaluating population 2 (20 entities)...
+  [pop2] bpt=tage l1da=4 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=4 l3=2048 robc=4 robd=2 robw=16  ASI= 2.3040  S=1.0589  A=  49.25  P= 16.53  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=8 l1d=32 l1ia=4 l1i=16 l2a=8 l2=128 l3a=4 l3=2048 robc=2 robd=2 robw=128  ASI= 2.5681  S=0.9731  A=  44.38  P= 15.35  [Strongly Sust.]
+  [pop2] bp=2048 bpt=a53 l1da=8 l1d=64 l1ia=8 l1i=32 l2a=4 l2=128 l3a=16 l3=2048 nhist=3 robc=2 robd=2 robw=256  ASI= 2.3754  S=0.9745  A=  46.77  P= 16.32  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=32 l2a=4 l2=256 l3a=8 l3=4096 robc=2 robd=2 robw=256  ASI= 2.0442  S=1.0020  A=  55.74  P= 17.76  [Strongly Sust.]
+  [pop2] bp=512 bpt=a53 l1da=4 l1d=64 l1ia=4 l1i=64 l2a=4 l2=512 l3a=8 l3=2048 nhist=2 robc=4 robd=2 robw=256  ASI= 2.3260  S=1.0604  A=  47.11  P= 16.63  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=4 l2=512 l3a=8 l3=2048 robc=4 robd=2 robw=256  ASI= 2.2207  S=1.0607  A=  48.56  P= 17.24  [Strongly Sust.]
+  [pop2] bpt=tage l1da=8 l1d=64 l1ia=8 l1i=32 l2a=8 l2=512 l3a=16 l3=1024 robc=2 robd=4 robw=128  ASI= 1.6734  S=1.0605  A=  52.65  P= 22.21  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=8 l1d=32 l1ia=4 l1i=16 l2a=8 l2=128 l3a=4 l3=2048 robc=2 robd=2 robw=128  ASI= 2.5681  S=0.9731  A=  44.38  P= 15.35  [Strongly Sust.]
+  [pop2] bpt=tage l1da=8 l1d=64 l1ia=8 l1i=32 l2a=8 l2=512 l3a=4 l3=4096 robc=10 robd=4 robw=128  ASI= 1.3257  S=1.0607  A=  69.95  P= 24.45  [Strongly Sust.]
+  [pop2] bpt=tage l1da=8 l1d=64 l1ia=8 l1i=32 l2a=8 l2=512 l3a=4 l3=2048 robc=10 robd=4 robw=128  ASI= 1.5670  S=1.0606  A=  57.52  P= 22.86  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=16 l2a=8 l2=128 l3a=4 l3=2048 robc=8 robd=2 robw=128  ASI= 2.7229  S=0.9732  A=  40.12  P= 14.91  [Strongly Sust.]
+  [pop2] bpt=tage l1da=8 l1d=64 l1ia=8 l1i=32 l2a=8 l2=512 l3a=4 l3=4096 robc=10 robd=4 robw=128  ASI= 1.3257  S=1.0607  A=  69.95  P= 24.45  [Strongly Sust.]
+  [pop2] bpt=tage l1da=8 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=4 l3=1024 robc=10 robd=2 robw=128  ASI= 2.3102  S=1.0589  A=  46.76  P= 16.79  [Strongly Sust.]
+  [pop2] bpt=tage l1da=4 l1d=64 l1ia=4 l1i=64 l2a=4 l2=512 l3a=4 l3=2048 robc=10 robd=4 robw=128  ASI= 1.7219  S=1.0606  A=  51.87  P= 21.71  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=8 l1d=64 l1ia=8 l1i=64 l2a=8 l2=128 l3a=16 l3=1024 robc=2 robd=2 robw=256  ASI= 2.5664  S=0.9745  A=  42.23  P= 15.59  [Strongly Sust.]
+  [pop2] bpt=tage l1da=8 l1d=64 l1ia=8 l1i=32 l2a=8 l2=512 l3a=4 l3=2048 robc=4 robd=2 robw=128  ASI= 2.0865  S=1.0606  A=  54.40  P= 17.58  [Strongly Sust.]
+  [pop2] bpt=tage l1da=4 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=4 l3=1024 robc=10 robd=2 robw=16  ASI= 2.5287  S=1.0589  A=  42.29  P= 15.82  [Strongly Sust.]
+  [pop2] bpt=tage l1da=8 l1d=32 l1ia=8 l1i=16 l2a=8 l2=128 l3a=4 l3=2048 robc=10 robd=2 robw=128  ASI= 2.4344  S=0.9731  A=  46.00  P= 16.02  [Strongly Sust.]
+  [pop2] bpt=tage l1da=8 l1d=64 l1ia=8 l1i=16 l2a=8 l2=512 l3a=4 l3=1024 robc=2 robd=2 robw=256  ASI= 2.2705  S=1.0604  A=  47.21  P= 17.02  [Strongly Sust.]
+  [pop2] bpt=tage l1da=4 l1d=64 l1ia=8 l1i=32 l2a=4 l2=512 l3a=8 l3=4096 robc=2 robd=2 robw=1024  ASI= 0.9029  S=1.0605  A=  66.88  P= 36.83  [Unsustainable]
+  Deleted 44 discarded output directories.
+
+  Combined Pareto front after generation 1 (12 points, HV=3.2093):
+  Params                                  ASI  Speedup     Area  PeakPow  Region
+  ──────────────────────────────────────────────────────────────────────────────
+  bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=4 l2=512 l3a=8 l3=2048 robc=4 robd=2 robw=256   2.2207   1.0607    48.56    17.24  Strongly Sust.
+  bp=512 bpt=a53 l1da=4 l1d=64 l1ia=4 l1i=64 l2a=4 l2=512 l3a=8 l3=2048 nhist=2 robc=4 robd=2 robw=256   2.3260   1.0604    47.11    16.63  Strongly Sust.
+  bp=512 bpt=a53 l1da=4 l1d=64 l1ia=4 l1i=64 l2a=4 l2=512 l3a=8 l3=2048 nhist=2 robc=4 robd=2 robw=256   2.3260   1.0604    47.11    16.63  Strongly Sust.
+  bpt=tage l1da=4 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=4 l3=1024 robc=10 robd=2 robw=16   2.5287   1.0589    42.29    15.82  Strongly Sust.
+  bpt=tage l1da=4 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=4 l3=1024 robc=10 robd=2 robw=16   2.5287   1.0589    42.29    15.82  Strongly Sust.
+  bp=512 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=16 l2a=8 l2=512 l3a=16 l3=1024 nhist=3 robc=4 robd=2 robw=16   2.6379   1.0581    42.56    15.14  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=1024 robc=2 robd=2 robw=256   2.7203   1.0005    35.85    15.36  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 robc=10 robd=2 robw=16   2.8417   1.0004    36.18    14.67  Strongly Sust.
+  bpt=tage l1da=4 l1d=16 l1ia=4 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 robc=8 robd=2 robw=256   2.8511   0.9997    34.86    14.75  Strongly Sust.
+  bp=512 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=1024 nhist=3 robc=4 robd=2 robw=16   3.0554   0.9723    35.08    13.74  Strongly Sust.
+  bp=512 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=1024 nhist=3 robc=4 robd=2 robw=16   3.0554   0.9723    35.08    13.74  Strongly Sust.
+  bp=512 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=1024 nhist=3 robc=4 robd=2 robw=16   3.0554   0.9723    35.08    13.74  Strongly Sust.
+  Ran sniper 46 times this generation (103 total).
+
+=== Generation 2 ===
+  Evaluating population 0 (20 entities)...
+  [pop0] bp=1024 bpt=a53 l1da=8 l1d=32 l1ia=8 l1i=64 l2a=8 l2=512 l3a=8 l3=1024 nhist=3 robc=10 robd=8 robw=1024  ASI= 0.0064  S=1.0591  A= 160.23  P=1188.35  [Unsustainable]
+  [pop0] bpt=tage l1da=4 l1d=16 l1ia=4 l1i=16 l2a=8 l2=256 l3a=8 l3=2048 robc=2 robd=2 robw=1024  ASI= 1.1835  S=0.9993  A=  44.25  P= 33.35  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=64 l2a=4 l2=512 l3a=4 l3=2048 robc=10 robd=2 robw=16  ASI= 2.3025  S=1.0590  A=  49.82  P= 16.48  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 robc=10 robd=2 robw=16  ASI= 2.8417  S=1.0004  A=  36.18  P= 14.67  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=8 l1d=32 l1ia=4 l1i=16 l2a=8 l2=512 l3a=4 l3=1024 robc=2 robd=2 robw=1024  ASI= 1.1091  S=1.0592  A=  49.73  P= 34.23  [Strongly Sust.]
+  [pop0] bp=1024 bpt=a53 l1da=4 l1d=64 l1ia=8 l1i=16 l2a=8 l2=512 l3a=16 l3=1024 nhist=3 robc=2 robd=8 robw=1024  ASI= 0.0070  S=1.0608  A= 157.56  P=1188.00  [Unsustainable]
+  [pop0] bpt=pentium_m l1da=4 l1d=16 l1ia=4 l1i=16 l2a=4 l2=256 l3a=4 l3=1024 robc=2 robd=2 robw=256  ASI= 2.8862  S=0.9997  A=  34.04  P= 14.65  [Strongly Sust.]
+  [pop0] bpt=tage l1da=4 l1d=16 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 robc=2 robd=2 robw=256  ASI= 2.7172  S=0.9997  A=  36.31  P= 15.33  [Strongly Sust.]
+  [pop0] bp=1024 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 nhist=3 robc=10 robd=2 robw=256  ASI= 2.7172  S=0.9996  A=  36.31  P= 15.33  [Strongly Sust.]
+  [pop0] bp=512 bpt=a53 l1da=4 l1d=32 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=2048 nhist=2 robc=10 robd=2 robw=16  ASI= 2.6153  S=1.0004  A=  41.39  P= 15.39  [Strongly Sust.]
+  [pop0] bpt=nn l1da=8 l1d=16 l1ia=4 l1i=16 l2a=8 l2=512 l3a=4 l3=2048 nnbl=32 nnlr=0.0005 robc=2 robd=2 robw=1024  ASI= 1.0428  S=1.0523  A=  55.57  P= 34.87  [Strongly Sust.]
+  [pop0] bpt=nn l1da=4 l1d=16 l1ia=4 l1i=16 l2a=8 l2=512 l3a=4 l3=2048 nnbl=32 nnlr=0.0005 robc=2 robd=2 robw=1024  ASI= 1.0823  S=1.0565  A=  52.22  P= 34.44  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=16 l2a=8 l2=512 l3a=4 l3=1024 robc=2 robd=2 robw=1024  ASI= 1.1192  S=1.0607  A=  47.25  P= 34.53  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 robc=10 robd=2 robw=16  ASI= 2.8417  S=1.0004  A=  36.18  P= 14.67  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 robc=10 robd=2 robw=16  ASI= 2.8417  S=1.0004  A=  36.18  P= 14.67  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=64 l2a=8 l2=256 l3a=4 l3=1024 robc=10 robd=2 robw=16  ASI= 2.9762  S=0.9999  A=  35.28  P= 14.09  [Strongly Sust.]
+  [pop0] bp=1024 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=16 l2a=8 l2=512 l3a=4 l3=2048 nhist=3 robc=10 robd=8 robw=256  ASI= 0.0537  S=1.0581  A=  83.69  P=533.46  [Unsustainable]
+  [pop0] bpt=nn l1da=4 l1d=16 l1ia=4 l1i=16 l2a=8 l2=512 l3a=4 l3=2048 nnbl=32 nnlr=0.0005 robc=2 robd=2 robw=1024  ASI= 1.0823  S=1.0565  A=  52.22  P= 34.44  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=16 l2a=4 l2=256 l3a=16 l3=1024 robc=10 robd=8 robw=16  ASI= 1.0206  S=1.0003  A=  48.20  P= 37.61  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=16 l1ia=4 l1i=16 l2a=8 l2=512 l3a=4 l3=2048 robc=2 robd=2 robw=1024  ASI= 1.0822  S=1.0584  A=  52.22  P= 34.45  [Strongly Sust.]
+  Evaluating population 1 (20 entities)...
+  [pop1] bp=512 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=1024 nhist=3 robc=4 robd=2 robw=16  ASI= 3.0554  S=0.9723  A=  35.08  P= 13.74  [Strongly Sust.]
+  [pop1] bp=512 bpt=a53 l1da=8 l1d=64 l1ia=4 l1i=64 l2a=8 l2=512 l3a=16 l3=2048 nhist=3 robc=4 robd=2 robw=16  ASI= 2.2487  S=1.0605  A=  53.04  P= 16.48  [Strongly Sust.]
+  [pop1] bp=512 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=1024 nhist=3 robc=4 robd=2 robw=16  ASI= 3.0554  S=0.9723  A=  35.08  P= 13.74  [Strongly Sust.]
+  [pop1] bp=512 bpt=a53 l1da=4 l1d=64 l1ia=4 l1i=16 l2a=8 l2=128 l3a=8 l3=2048 nhist=2 robc=8 robd=2 robw=256  ASI= 2.7033  S=0.9745  A=  38.66  P= 15.17  [Strongly Sust.]
+  [pop1] bp=2048 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=32 l2a=8 l2=512 l3a=16 l3=1024 nhist=3 robc=4 robd=2 robw=16  ASI= 2.4811  S=1.0581  A=  44.53  P= 15.88  [Strongly Sust.]
+  [pop1] bp=512 bpt=a53 l1da=8 l1d=16 l1ia=4 l1i=32 l2a=8 l2=512 l3a=16 l3=2048 nhist=3 robc=4 robd=4 robw=512  ASI= 0.3620  S=1.0580  A=  61.38  P= 96.05  [Unsustainable]
+  [pop1] bp=512 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=32 l2a=8 l2=512 l3a=16 l3=2048 nhist=3 robc=4 robd=4 robw=16  ASI= 1.8563  S=1.0581  A=  50.40  P= 20.35  [Strongly Sust.]
+  [pop1] bp=512 bpt=a53 l1da=8 l1d=16 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=3 robc=4 robd=2 robw=512  ASI= 1.6671  S=0.9724  A=  45.11  P= 23.53  [Strongly Sust.]
+  [pop1] bpt=pentium_m l1da=8 l1d=32 l1ia=4 l1i=16 l2a=4 l2=256 l3a=4 l3=1024 robc=2 robd=2 robw=256  ASI= 2.7131  S=1.0004  A=  38.50  P= 15.13  [Strongly Sust.]
+  [pop1] bpt=pentium_m l1da=4 l1d=16 l1ia=4 l1i=64 l2a=8 l2=256 l3a=4 l3=1024 robc=4 robd=2 robw=256  ASI= 2.8408  S=0.9992  A=  35.41  P= 14.75  [Strongly Sust.]
+  [pop1] bp=512 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=16 l2a=8 l2=512 l3a=16 l3=1024 nhist=3 robc=4 robd=2 robw=16  ASI= 2.6379  S=1.0581  A=  42.56  P= 15.14  [Strongly Sust.]
+  [pop1] bp=512 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=32 l2a=8 l2=512 l3a=4 l3=1024 nhist=3 robc=4 robd=2 robw=32  ASI= 2.6436  S=1.0581  A=  40.81  P= 15.29  [Strongly Sust.]
+  [pop1] bp=512 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=1024 nhist=3 robc=8 robd=2 robw=16  ASI= 3.0554  S=0.9723  A=  35.08  P= 13.74  [Strongly Sust.]
+  [pop1] bp=512 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=16 l2a=8 l2=128 l3a=16 l3=1024 nhist=3 robc=4 robd=2 robw=16  ASI= 3.0654  S=0.9724  A=  34.84  P= 13.72  [Strongly Sust.]
+  [pop1] bp=2048 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=32 l2a=8 l2=512 l3a=4 l3=1024 nhist=3 robc=8 robd=2 robw=16  ASI= 2.5266  S=1.0581  A=  42.45  P= 15.82  [Strongly Sust.]
+  [pop1] bpt=pentium_m l1da=8 l1d=32 l1ia=4 l1i=64 l2a=8 l2=256 l3a=16 l3=1024 robc=4 robd=2 robw=256  ASI= 2.6225  S=1.0000  A=  41.94  P= 15.29  [Strongly Sust.]
+  [pop1] bpt=pentium_m l1da=4 l1d=64 l1ia=4 l1i=64 l2a=8 l2=128 l3a=16 l3=1024 robc=4 robd=2 robw=512  ASI= 1.8272  S=0.9747  A=  37.85  P= 22.56  [Strongly Sust.]
+  [pop1] bp=512 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=1024 nhist=3 robc=4 robd=2 robw=16  ASI= 3.0554  S=0.9723  A=  35.08  P= 13.74  [Strongly Sust.]
+  [pop1] bpt=pentium_m l1da=8 l1d=16 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 robc=4 robd=4 robw=512  ASI= 0.3899  S=0.9726  A=  53.66  P= 94.61  [Unsustainable]
+  [pop1] bp=512 bpt=a53 l1da=4 l1d=64 l1ia=4 l1i=64 l2a=8 l2=128 l3a=8 l3=2048 nhist=2 robc=4 robd=2 robw=256  ASI= 2.6723  S=0.9745  A=  39.49  P= 15.26  [Strongly Sust.]
+  Evaluating population 2 (20 entities)...
+  [pop2] bpt=pentium_m l1da=8 l1d=64 l1ia=8 l1i=64 l2a=8 l2=128 l3a=4 l3=1024 robc=2 robd=2 robw=256  ASI= 2.6131  S=0.9745  A=  40.15  P= 15.53  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=8 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=4 l3=1024 robc=2 robd=2 robw=16  ASI= 2.3851  S=1.0588  A=  46.55  P= 16.28  [Strongly Sust.]
+  [pop2] bp=512 bpt=a53 l1da=4 l1d=64 l1ia=4 l1i=64 l2a=8 l2=128 l3a=8 l3=2048 nhist=2 robc=4 robd=2 robw=128  ASI= 2.7081  S=0.9745  A=  39.37  P= 15.07  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=64 l2a=8 l2=128 l3a=4 l3=1024 robc=8 robd=2 robw=128  ASI= 2.9600  S=0.9731  A=  34.00  P= 14.28  [Strongly Sust.]
+  [pop2] bp=512 bpt=a53 l1da=4 l1d=64 l1ia=4 l1i=64 l2a=4 l2=512 l3a=8 l3=2048 nhist=2 robc=4 robd=2 robw=256  ASI= 2.3260  S=1.0604  A=  47.11  P= 16.63  [Strongly Sust.]
+  [pop2] bpt=tage l1da=8 l1d=32 l1ia=8 l1i=16 l2a=8 l2=128 l3a=4 l3=1024 robc=10 robd=2 robw=256  ASI= 2.6384  S=0.9731  A=  39.16  P= 15.49  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=64 l2a=8 l2=128 l3a=4 l3=2048 robc=4 robd=2 robw=256  ASI= 2.6555  S=0.9732  A=  41.07  P= 15.19  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=8 l1d=32 l1ia=8 l1i=64 l2a=8 l2=128 l3a=4 l3=2048 robc=2 robd=2 robw=128  ASI= 2.4234  S=0.9732  A=  46.66  P= 16.01  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=4 l2=512 l3a=16 l3=1024 robc=4 robd=2 robw=256  ASI= 2.3624  S=1.0606  A=  45.44  P= 16.57  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=8 l1d=32 l1ia=8 l1i=16 l2a=8 l2=128 l3a=16 l3=2048 robc=8 robd=2 robw=128  ASI= 2.4269  S=0.9732  A=  45.99  P= 16.07  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=16 l2a=8 l2=512 l3a=8 l3=2048 robc=4 robd=2 robw=256  ASI= 2.3543  S=1.0589  A=  46.21  P= 16.54  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=16 l2a=4 l2=512 l3a=8 l3=1024 robc=4 robd=2 robw=16  ASI= 2.5255  S=1.0603  A=  42.37  P= 15.83  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=8 l1d=16 l1ia=8 l1i=32 l2a=8 l2=512 l3a=16 l3=1024 robc=4 robd=2 robw=32  ASI= 2.3305  S=1.0582  A=  47.96  P= 16.50  [Strongly Sust.]
+  [pop2] bpt=nn l1da=8 l1d=64 l1ia=4 l1i=64 l2a=4 l2=512 l3a=4 l3=2048 nnbl=32 nnlr=0.0005 robc=4 robd=2 robw=1024  ASI= 1.0209  S=1.0587  A=  57.75  P= 35.03  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=4 l2=512 l3a=8 l3=2048 robc=4 robd=2 robw=256  ASI= 2.2207  S=1.0607  A=  48.56  P= 17.24  [Strongly Sust.]
+  [pop2] bpt=tage l1da=4 l1d=32 l1ia=8 l1i=64 l2a=8 l2=128 l3a=16 l3=1024 robc=10 robd=2 robw=256  ASI= 2.7335  S=0.9730  A=  37.64  P= 15.10  [Strongly Sust.]
+  [pop2] bpt=tage l1da=4 l1d=64 l1ia=8 l1i=16 l2a=8 l2=512 l3a=8 l3=2048 robc=4 robd=2 robw=16  ASI= 2.3207  S=1.0606  A=  47.67  P= 16.60  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=64 l2a=8 l2=128 l3a=4 l3=1024 robc=2 robd=2 robw=128  ASI= 2.9600  S=0.9731  A=  34.00  P= 14.28  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=4 l2=512 l3a=8 l3=2048 robc=4 robd=2 robw=256  ASI= 2.2207  S=1.0607  A=  48.56  P= 17.24  [Strongly Sust.]
+  [pop2] bp=512 bpt=a53 l1da=4 l1d=64 l1ia=4 l1i=64 l2a=4 l2=512 l3a=8 l3=2048 nhist=2 robc=4 robd=2 robw=256  ASI= 2.3260  S=1.0604  A=  47.11  P= 16.63  [Strongly Sust.]
+  Deleted 45 discarded output directories.
+
+  Combined Pareto front after generation 2 (17 points, HV=3.2231):
+  Params                                  ASI  Speedup     Area  PeakPow  Region
+  ──────────────────────────────────────────────────────────────────────────────
+  bp=1024 bpt=a53 l1da=4 l1d=64 l1ia=8 l1i=16 l2a=8 l2=512 l3a=16 l3=1024 nhist=3 robc=2 robd=8 robw=1024   0.0070   1.0608   157.56  1188.00  Unsustainable
+  bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=16 l2a=8 l2=512 l3a=4 l3=1024 robc=2 robd=2 robw=1024   1.1192   1.0607    47.25    34.53  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=4 l2=512 l3a=8 l3=2048 robc=4 robd=2 robw=256   2.2207   1.0607    48.56    17.24  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=4 l2=512 l3a=8 l3=2048 robc=4 robd=2 robw=256   2.2207   1.0607    48.56    17.24  Strongly Sust.
+  bpt=tage l1da=4 l1d=64 l1ia=8 l1i=16 l2a=8 l2=512 l3a=8 l3=2048 robc=4 robd=2 robw=16   2.3207   1.0606    47.67    16.60  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=4 l2=512 l3a=16 l3=1024 robc=4 robd=2 robw=256   2.3624   1.0606    45.44    16.57  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=16 l2a=4 l2=512 l3a=8 l3=1024 robc=4 robd=2 robw=16   2.5255   1.0603    42.37    15.83  Strongly Sust.
+  bpt=tage l1da=4 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=4 l3=1024 robc=10 robd=2 robw=16   2.5287   1.0589    42.29    15.82  Strongly Sust.
+  bpt=tage l1da=4 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=4 l3=1024 robc=10 robd=2 robw=16   2.5287   1.0589    42.29    15.82  Strongly Sust.
+  bp=512 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=32 l2a=8 l2=512 l3a=4 l3=1024 nhist=3 robc=4 robd=2 robw=32   2.6436   1.0581    40.81    15.29  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=1024 robc=2 robd=2 robw=256   2.7203   1.0005    35.85    15.36  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 robc=10 robd=2 robw=16   2.8417   1.0004    36.18    14.67  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 robc=10 robd=2 robw=16   2.8417   1.0004    36.18    14.67  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 robc=10 robd=2 robw=16   2.8417   1.0004    36.18    14.67  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 robc=10 robd=2 robw=16   2.8417   1.0004    36.18    14.67  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=64 l2a=8 l2=256 l3a=4 l3=1024 robc=10 robd=2 robw=16   2.9762   0.9999    35.28    14.09  Strongly Sust.
+  bp=512 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=16 l2a=8 l2=128 l3a=16 l3=1024 nhist=3 robc=4 robd=2 robw=16   3.0654   0.9724    34.84    13.72  Strongly Sust.
+  Ran sniper 46 times this generation (149 total).
+
+=== Generation 3 ===
+  Evaluating population 0 (20 entities)...
+  [pop0] bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=16 l2a=8 l2=256 l3a=4 l3=1024 robc=10 robd=2 robw=128  ASI= 2.9034  S=1.0000  A=  34.66  P= 14.50  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=64 l2a=4 l2=256 l3a=4 l3=1024 robc=10 robd=2 robw=16  ASI= 2.8435  S=1.0003  A=  36.19  P= 14.66  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=64 l2a=8 l2=512 l3a=4 l3=1024 robc=10 robd=2 robw=1024  ASI= 1.1491  S=1.0592  A=  46.30  P= 33.86  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=8 l2=512 l3a=4 l3=2048 robc=10 robd=2 robw=16  ASI= 2.2843  S=1.0606  A=  50.08  P= 16.58  [Strongly Sust.]
+  [pop0] bp=1024 bpt=a53 l1da=4 l1d=64 l1ia=8 l1i=64 l2a=8 l2=512 l3a=16 l3=1024 nhist=3 robc=2 robd=2 robw=1024  ASI= 1.0958  S=1.0605  A=  49.99  P= 34.58  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=64 l2a=4 l2=512 l3a=4 l3=1024 robc=2 robd=2 robw=16  ASI= 2.5369  S=1.0581  A=  42.67  P= 15.73  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=8 l2=512 l3a=4 l3=1024 robc=10 robd=2 robw=16  ASI= 2.5075  S=1.0605  A=  43.13  P= 15.86  [Strongly Sust.]
+  [pop0] bp=1024 bpt=a53 l1da=4 l1d=32 l1ia=8 l1i=16 l2a=8 l2=128 l3a=4 l3=2048 nhist=3 robc=8 robd=2 robw=1024  ASI= 1.1536  S=0.9732  A=  46.32  P= 33.72  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 robc=10 robd=2 robw=16  ASI= 2.8417  S=1.0004  A=  36.18  P= 14.67  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 robc=10 robd=2 robw=16  ASI= 2.8417  S=1.0004  A=  36.18  P= 14.67  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=4 l2=512 l3a=8 l3=1024 robc=2 robd=8 robw=1024  ASI= 0.0074  S=1.0607  A= 156.05  P=1187.89  [Unsustainable]
+  [pop0] bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=1024 robc=10 robd=2 robw=16  ASI= 2.8550  S=1.0003  A=  35.52  P= 14.66  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=16 l2a=4 l2=512 l3a=8 l3=1024 robc=10 robd=8 robw=16  ASI= 0.9598  S=1.0589  A=  52.79  P= 38.68  [Weakly S-FW]
+  [pop0] bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 robc=10 robd=2 robw=16  ASI= 2.8417  S=1.0004  A=  36.18  P= 14.67  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=8 l2=256 l3a=4 l3=1024 robc=2 robd=2 robw=16  ASI= 2.8183  S=1.0013  A=  36.90  P= 14.72  [Strongly Sust.]
+  [pop0] bp=1024 bpt=a53 l1da=4 l1d=32 l1ia=8 l1i=64 l2a=4 l2=512 l3a=16 l3=1024 nhist=3 robc=10 robd=8 robw=16  ASI= 0.9393  S=1.0589  A=  55.53  P= 38.72  [Unsustainable]
+  [pop0] bp=1024 bpt=a53 l1da=4 l1d=32 l1ia=8 l1i=16 l2a=8 l2=256 l3a=4 l3=1024 nhist=3 robc=2 robd=2 robw=256  ASI= 2.7089  S=0.9998  A=  36.39  P= 15.37  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=16 l2a=8 l2=512 l3a=16 l3=1024 robc=2 robd=8 robw=1024  ASI= 0.0070  S=1.0606  A= 157.56  P=1187.99  [Unsustainable]
+  [pop0] bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=64 l2a=8 l2=256 l3a=4 l3=1024 robc=10 robd=2 robw=16  ASI= 2.8313  S=0.9998  A=  36.73  P= 14.67  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=64 l2a=8 l2=256 l3a=4 l3=1024 robc=10 robd=2 robw=1024  ASI= 1.2405  S=1.0001  A=  40.07  P= 32.74  [Strongly Sust.]
+  Evaluating population 1 (20 entities)...
+  [pop1] bp=2048 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=32 l2a=8 l2=512 l3a=4 l3=2048 nhist=3 robc=8 robd=2 robw=32  ASI= 2.2748  S=1.0582  A=  49.49  P= 16.72  [Strongly Sust.]
+  [pop1] bp=2048 bpt=a53 l1da=4 l1d=32 l1ia=4 l1i=32 l2a=4 l2=512 l3a=4 l3=1024 nhist=3 robc=4 robd=2 robw=256  ASI= 2.5550  S=1.0589  A=  41.16  P= 15.78  [Strongly Sust.]
+  [pop1] bp=512 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=16 l2a=8 l2=128 l3a=4 l3=1024 nhist=3 robc=4 robd=2 robw=32  ASI= 3.0771  S=0.9723  A=  32.85  P= 13.84  [Strongly Sust.]
+  [pop1] bp=512 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=32 l2a=8 l2=512 l3a=4 l3=2048 nhist=3 robc=4 robd=2 robw=32  ASI= 2.4063  S=1.0581  A=  47.76  P= 16.00  [Strongly Sust.]
+  [pop1] bpt=pentium_m l1da=8 l1d=32 l1ia=4 l1i=16 l2a=4 l2=256 l3a=4 l3=1024 robc=2 robd=2 robw=256  ASI= 2.7131  S=1.0004  A=  38.50  P= 15.13  [Strongly Sust.]
+  [pop1] bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=16 l2a=8 l2=128 l3a=4 l3=1024 robc=2 robd=2 robw=16  ASI= 3.1091  S=0.9731  A=  32.96  P= 13.69  [Strongly Sust.]
+  [pop1] bp=512 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=64 l2a=8 l2=512 l3a=4 l3=2048 nhist=3 robc=4 robd=2 robw=16  ASI= 2.4155  S=1.0581  A=  48.26  P= 15.88  [Strongly Sust.]
+  [pop1] bp=512 bpt=a53 l1da=8 l1d=16 l1ia=4 l1i=32 l2a=8 l2=256 l3a=4 l3=1024 nhist=3 robc=4 robd=2 robw=32  ASI= 2.8230  S=0.9992  A=  37.93  P= 14.60  [Strongly Sust.]
+  [pop1] bp=512 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=32 l2a=8 l2=512 l3a=4 l3=1024 nhist=3 robc=4 robd=2 robw=32  ASI= 2.6436  S=1.0581  A=  40.81  P= 15.29  [Strongly Sust.]
+  [pop1] bp=512 bpt=a53 l1da=8 l1d=64 l1ia=8 l1i=16 l2a=8 l2=512 l3a=16 l3=2048 nhist=3 robc=4 robd=8 robw=16  ASI= 0.8485  S=1.0606  A=  64.42  P= 39.99  [Unsustainable]
+  [pop1] bpt=pentium_m l1da=4 l1d=64 l1ia=4 l1i=32 l2a=8 l2=512 l3a=16 l3=2048 robc=4 robd=2 robw=32  ASI= 2.3800  S=1.0606  A=  48.12  P= 16.14  [Strongly Sust.]
+  [pop1] bp=512 bpt=a53 l1da=8 l1d=16 l1ia=4 l1i=64 l2a=8 l2=128 l3a=16 l3=1024 nhist=3 robc=4 robd=4 robw=512  ASI= 0.4050  S=0.9723  A=  49.39  P= 93.97  [Unsustainable]
+  [pop1] bp=2048 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=3 robc=4 robd=2 robw=32  ASI= 2.7759  S=0.9724  A=  40.04  P= 14.63  [Strongly Sust.]
+  [pop1] bp=512 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=16 l2a=8 l2=128 l3a=16 l3=2048 nhist=3 robc=4 robd=4 robw=512  ASI= 0.4021  S=0.9724  A=  50.08  P= 94.17  [Unsustainable]
+  [pop1] bpt=pentium_m l1da=8 l1d=64 l1ia=4 l1i=16 l2a=8 l2=128 l3a=16 l3=1024 robc=4 robd=2 robw=16  ASI= 2.8602  S=0.9744  A=  39.63  P= 14.24  [Strongly Sust.]
+  [pop1] bp=1024 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=16 l2a=8 l2=512 l3a=16 l3=1024 nhist=3 robc=4 robd=8 robw=1024  ASI= 0.0071  S=1.0584  A= 157.19  P=1187.91  [Unsustainable]
+  [pop1] bpt=pentium_m l1da=8 l1d=64 l1ia=4 l1i=64 l2a=8 l2=128 l3a=16 l3=2048 robc=4 robd=2 robw=512  ASI= 1.6313  S=0.9746  A=  47.14  P= 23.71  [Strongly Sust.]
+  [pop1] bpt=pentium_m l1da=8 l1d=16 l1ia=8 l1i=64 l2a=8 l2=512 l3a=16 l3=2048 robc=8 robd=2 robw=512  ASI= 1.4253  S=1.0583  A=  54.86  P= 25.65  [Strongly Sust.]
+  [pop1] bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=16 l2a=8 l2=256 l3a=4 l3=1024 robc=2 robd=2 robw=256  ASI= 2.8637  S=0.9999  A=  34.78  P= 14.69  [Strongly Sust.]
+  [pop1] bp=512 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=32 l2a=8 l2=512 l3a=16 l3=1024 nhist=3 robc=4 robd=2 robw=16  ASI= 2.6296  S=1.0580  A=  42.80  P= 15.16  [Strongly Sust.]
+  Evaluating population 2 (20 entities)...
+  [pop2] bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=64 l2a=8 l2=512 l3a=4 l3=1024 robc=10 robd=2 robw=16  ASI= 2.5186  S=1.0590  A=  42.96  P= 15.81  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=16 l2a=4 l2=128 l3a=8 l3=1024 robc=8 robd=2 robw=128  ASI= 2.8327  S=0.9731  A=  34.75  P= 14.85  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=16 l2a=4 l2=512 l3a=8 l3=1024 robc=4 robd=2 robw=16  ASI= 2.5366  S=1.0589  A=  42.20  P= 15.78  [Strongly Sust.]
+  [pop2] bpt=tage l1da=4 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=4 l3=1024 robc=10 robd=2 robw=16  ASI= 2.5287  S=1.0589  A=  42.29  P= 15.82  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=4 l2=128 l3a=8 l3=1024 robc=4 robd=2 robw=16  ASI= 2.9101  S=0.9745  A=  35.38  P= 14.40  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=64 l2a=8 l2=128 l3a=4 l3=1024 robc=2 robd=2 robw=128  ASI= 2.9600  S=0.9731  A=  34.00  P= 14.28  [Strongly Sust.]
+  [pop2] bpt=tage l1da=4 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=4 l3=1024 robc=10 robd=2 robw=16  ASI= 2.5287  S=1.0589  A=  42.29  P= 15.82  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=64 l2a=8 l2=128 l3a=8 l3=1024 robc=10 robd=2 robw=16  ASI= 2.9209  S=0.9731  A=  35.23  P= 14.36  [Strongly Sust.]
+  [pop2] bpt=tage l1da=4 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=4 l3=1024 robc=10 robd=2 robw=16  ASI= 2.5287  S=1.0589  A=  42.29  P= 15.82  [Strongly Sust.]
+  [pop2] bp=512 bpt=a53 l1da=4 l1d=64 l1ia=4 l1i=64 l2a=8 l2=128 l3a=4 l3=2048 nhist=2 robc=2 robd=2 robw=128  ASI= 2.6791  S=0.9745  A=  41.12  P= 15.05  [Strongly Sust.]
+  [pop2] bpt=tage l1da=4 l1d=64 l1ia=8 l1i=16 l2a=8 l2=512 l3a=4 l3=2048 robc=10 robd=2 robw=16  ASI= 2.2940  S=1.0607  A=  49.42  P= 16.59  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=16 l2a=8 l2=128 l3a=8 l3=2048 robc=4 robd=2 robw=128  ASI= 2.7521  S=0.9732  A=  38.37  P= 14.93  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=16 l2a=4 l2=512 l3a=4 l3=1024 robc=4 robd=2 robw=128  ASI= 2.4561  S=1.0589  A=  42.41  P= 16.27  [Strongly Sust.]
+  [pop2] bpt=tage l1da=4 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=4 l3=1024 robc=10 robd=2 robw=16  ASI= 2.5287  S=1.0589  A=  42.29  P= 15.82  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=16 l2a=4 l2=512 l3a=8 l3=1024 robc=4 robd=2 robw=16  ASI= 2.5255  S=1.0603  A=  42.37  P= 15.83  [Strongly Sust.]
+  [pop2] bpt=tage l1da=4 l1d=32 l1ia=4 l1i=16 l2a=8 l2=512 l3a=4 l3=1024 robc=8 robd=2 robw=16  ASI= 2.6766  S=1.0589  A=  40.68  P= 15.11  [Strongly Sust.]
+  [pop2] bp=512 bpt=a53 l1da=4 l1d=32 l1ia=4 l1i=16 l2a=8 l2=512 l3a=8 l3=1024 nhist=2 robc=4 robd=2 robw=128  ASI= 2.5852  S=1.0588  A=  40.89  P= 15.62  [Strongly Sust.]
+  [pop2] bpt=tage l1da=4 l1d=32 l1ia=8 l1i=64 l2a=8 l2=512 l3a=8 l3=2048 robc=10 robd=2 robw=16  ASI= 2.3211  S=1.0589  A=  48.16  P= 16.54  [Strongly Sust.]
+  [pop2] bpt=tage l1da=4 l1d=32 l1ia=8 l1i=16 l2a=8 l2=128 l3a=4 l3=2048 robc=10 robd=2 robw=128  ASI= 2.5788  S=0.9731  A=  41.74  P= 15.57  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=64 l1ia=4 l1i=64 l2a=8 l2=128 l3a=4 l3=2048 robc=8 robd=2 robw=128  ASI= 2.6791  S=0.9746  A=  41.12  P= 15.05  [Strongly Sust.]
+  Deleted 45 discarded output directories.
+
+  Combined Pareto front after generation 3 (15 points, HV=3.2679):
+  Params                                  ASI  Speedup     Area  PeakPow  Region
+  ──────────────────────────────────────────────────────────────────────────────
+  bp=1024 bpt=a53 l1da=4 l1d=64 l1ia=8 l1i=16 l2a=8 l2=512 l3a=16 l3=1024 nhist=3 robc=2 robd=8 robw=1024   0.0070   1.0608   157.56  1188.00  Unsustainable
+  bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=16 l2a=8 l2=512 l3a=4 l3=1024 robc=2 robd=2 robw=1024   1.1192   1.0607    47.25    34.53  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=4 l2=512 l3a=8 l3=2048 robc=4 robd=2 robw=256   2.2207   1.0607    48.56    17.24  Strongly Sust.
+  bpt=tage l1da=4 l1d=64 l1ia=8 l1i=16 l2a=8 l2=512 l3a=4 l3=2048 robc=10 robd=2 robw=16   2.2940   1.0607    49.42    16.59  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=64 l1ia=4 l1i=32 l2a=8 l2=512 l3a=16 l3=2048 robc=4 robd=2 robw=32   2.3800   1.0606    48.12    16.14  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=8 l2=512 l3a=4 l3=1024 robc=10 robd=2 robw=16   2.5075   1.0605    43.13    15.86  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=16 l2a=4 l2=512 l3a=8 l3=1024 robc=4 robd=2 robw=16   2.5255   1.0603    42.37    15.83  Strongly Sust.
+  bp=2048 bpt=a53 l1da=4 l1d=32 l1ia=4 l1i=32 l2a=4 l2=512 l3a=4 l3=1024 nhist=3 robc=4 robd=2 robw=256   2.5550   1.0589    41.16    15.78  Strongly Sust.
+  bpt=tage l1da=4 l1d=32 l1ia=4 l1i=16 l2a=8 l2=512 l3a=4 l3=1024 robc=8 robd=2 robw=16   2.6766   1.0589    40.68    15.11  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=8 l2=256 l3a=4 l3=1024 robc=2 robd=2 robw=16   2.8183   1.0013    36.90    14.72  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 robc=10 robd=2 robw=16   2.8417   1.0004    36.18    14.67  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=1024 robc=10 robd=2 robw=16   2.8550   1.0003    35.52    14.66  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=16 l2a=8 l2=256 l3a=4 l3=1024 robc=10 robd=2 robw=128   2.9034   1.0000    34.66    14.50  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=64 l2a=8 l2=256 l3a=4 l3=1024 robc=10 robd=2 robw=16   2.9762   0.9999    35.28    14.09  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=16 l2a=8 l2=128 l3a=4 l3=1024 robc=2 robd=2 robw=16   3.1091   0.9731    32.96    13.69  Strongly Sust.
+  Ran sniper 48 times this generation (197 total).
+
+=== Generation 4 ===
+  Evaluating population 0 (20 entities)...
+  [pop0] bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=16 l3=1024 robc=2 robd=8 robw=256  ASI= 0.0562  S=1.0590  A=  79.02  P=532.84  [Unsustainable]
+  [pop0] bp=1024 bpt=a53 l1da=4 l1d=64 l1ia=8 l1i=16 l2a=8 l2=512 l3a=16 l3=2048 nhist=3 robc=2 robd=2 robw=1024  ASI= 1.0409  S=1.0606  A=  54.19  P= 35.29  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=8 l2=512 l3a=4 l3=2048 robc=10 robd=2 robw=16  ASI= 2.2843  S=1.0606  A=  50.08  P= 16.58  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=16 l2a=4 l2=128 l3a=4 l3=1024 robc=4 robd=2 robw=256  ASI= 2.7838  S=0.9746  A=  35.05  P= 15.09  [Strongly Sust.]
+  [pop0] bp=1024 bpt=a53 l1da=4 l1d=64 l1ia=8 l1i=16 l2a=8 l2=512 l3a=16 l3=1024 nhist=3 robc=2 robd=8 robw=1024  ASI= 0.0070  S=1.0608  A= 157.56  P=1188.00  [Unsustainable]
+  [pop0] bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=64 l2a=8 l2=256 l3a=4 l3=1024 robc=2 robd=2 robw=256  ASI= 2.8306  S=1.0000  A=  35.60  P= 14.78  [Strongly Sust.]
+  [pop0] bp=512 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=16 l2a=8 l2=512 l3a=4 l3=1024 nhist=3 robc=4 robd=2 robw=32  ASI= 2.5066  S=1.0580  A=  42.18  P= 15.97  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=8 l2=256 l3a=8 l3=1024 robc=10 robd=2 robw=1024  ASI= 1.2034  S=1.0015  A=  41.68  P= 33.38  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 robc=2 robd=2 robw=16  ASI= 2.8286  S=1.0018  A=  36.35  P= 14.72  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=64 l2a=8 l2=256 l3a=8 l3=1024 robc=10 robd=2 robw=16  ASI= 2.8295  S=1.0000  A=  36.72  P= 14.68  [Strongly Sust.]
+  [pop0] bp=512 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=128 l3a=8 l3=1024 nhist=3 robc=4 robd=2 robw=16  ASI= 2.9466  S=0.9724  A=  34.35  P= 14.32  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=64 l1ia=4 l1i=16 l2a=8 l2=512 l3a=4 l3=1024 robc=2 robd=2 robw=1024  ASI= 1.1558  S=1.0608  A=  45.64  P= 33.82  [Strongly Sust.]
+  [pop0] bp=1024 bpt=a53 l1da=4 l1d=64 l1ia=8 l1i=16 l2a=8 l2=512 l3a=16 l3=1024 nhist=3 robc=2 robd=8 robw=1024  ASI= 0.0070  S=1.0608  A= 157.56  P=1188.00  [Unsustainable]
+  [pop0] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=8 l2=512 l3a=4 l3=2048 robc=2 robd=2 robw=16  ASI= 2.2843  S=1.0606  A=  50.08  P= 16.58  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 robc=10 robd=2 robw=16  ASI= 2.8417  S=1.0004  A=  36.18  P= 14.67  [Strongly Sust.]
+  [pop0] bp=1024 bpt=a53 l1da=4 l1d=64 l1ia=8 l1i=16 l2a=8 l2=256 l3a=4 l3=8192 nhist=3 robc=2 robd=2 robw=1024  ASI= 0.6832  S=1.0014  A=  91.49  P= 38.79  [Unsustainable]
+  [pop0] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=16 l2a=8 l2=512 l3a=4 l3=1024 robc=2 robd=2 robw=1024  ASI= 1.1192  S=1.0607  A=  47.25  P= 34.53  [Strongly Sust.]
+  [pop0] bp=1024 bpt=a53 l1da=4 l1d=64 l1ia=8 l1i=16 l2a=8 l2=512 l3a=16 l3=1024 nhist=3 robc=2 robd=8 robw=1024  ASI= 0.0070  S=1.0608  A= 157.56  P=1188.00  [Unsustainable]
+  [pop0] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=16 l2a=8 l2=512 l3a=4 l3=1024 robc=2 robd=2 robw=1024  ASI= 1.1192  S=1.0607  A=  47.25  P= 34.53  [Strongly Sust.]
+  [pop0] bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=64 l2a=8 l2=256 l3a=4 l3=1024 robc=2 robd=2 robw=256  ASI= 2.6978  S=1.0000  A=  37.05  P= 15.36  [Strongly Sust.]
+  Evaluating population 1 (20 entities)...
+  [pop1] bpt=pentium_m l1da=8 l1d=64 l1ia=4 l1i=64 l2a=4 l2=512 l3a=4 l3=1024 robc=2 robd=4 robw=256  ASI= 0.6822  S=1.0605  A=  51.84  P= 54.80  [Unsustainable]
+  [pop1] bpt=pentium_m l1da=8 l1d=32 l1ia=4 l1i=16 l2a=8 l2=256 l3a=4 l3=1024 robc=4 robd=4 robw=512  ASI= 0.4049  S=1.0001  A=  49.09  P= 94.19  [Unsustainable]
+  [pop1] bpt=pentium_m l1da=8 l1d=32 l1ia=4 l1i=16 l2a=4 l2=256 l3a=4 l3=1024 robc=2 robd=2 robw=256  ASI= 2.7131  S=1.0004  A=  38.50  P= 15.13  [Strongly Sust.]
+  [pop1] bpt=pentium_m l1da=8 l1d=64 l1ia=4 l1i=64 l2a=8 l2=256 l3a=16 l3=1024 robc=2 robd=4 robw=256  ASI= 0.7159  S=1.0013  A=  47.78  P= 53.78  [Unsustainable]
+  [pop1] bpt=pentium_m l1da=8 l1d=32 l1ia=4 l1i=16 l2a=4 l2=256 l3a=4 l3=1024 robc=2 robd=2 robw=256  ASI= 2.7131  S=1.0004  A=  38.50  P= 15.13  [Strongly Sust.]
+  [pop1] bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=64 l2a=8 l2=512 l3a=4 l3=1024 robc=4 robd=4 robw=512  ASI= 0.3936  S=1.0591  A=  51.88  P= 94.95  [Unsustainable]
+  [pop1] bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=16 l2a=8 l2=256 l3a=4 l3=1024 robc=2 robd=2 robw=16  ASI= 3.0118  S=0.9999  A=  34.45  P= 14.00  [Strongly Sust.]
+  [pop1] bpt=pentium_m l1da=8 l1d=32 l1ia=4 l1i=16 l2a=4 l2=256 l3a=4 l3=1024 robc=2 robd=2 robw=256  ASI= 2.7131  S=1.0004  A=  38.50  P= 15.13  [Strongly Sust.]
+  [pop1] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=8 l2=128 l3a=16 l3=2048 robc=4 robd=2 robw=16  ASI= 2.6363  S=0.9745  A=  42.35  P= 15.17  [Strongly Sust.]
+  [pop1] bpt=pentium_m l1da=8 l1d=32 l1ia=4 l1i=16 l2a=4 l2=256 l3a=4 l3=1024 robc=2 robd=2 robw=256  ASI= 2.7131  S=1.0004  A=  38.50  P= 15.13  [Strongly Sust.]
+  [pop1] bpt=pentium_m l1da=4 l1d=64 l1ia=4 l1i=32 l2a=8 l2=512 l3a=16 l3=1024 robc=4 robd=4 robw=512  ASI= 0.3886  S=1.0607  A=  53.54  P= 94.99  [Unsustainable]
+  [pop1] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=4 l2=512 l3a=16 l3=2048 robc=4 robd=2 robw=512  ASI= 1.4812  S=1.0606  A=  51.79  P= 25.25  [Strongly Sust.]
+  [pop1] bpt=pentium_m l1da=8 l1d=32 l1ia=4 l1i=16 l2a=4 l2=256 l3a=4 l3=1024 robc=2 robd=2 robw=256  ASI= 2.7131  S=1.0004  A=  38.50  P= 15.13  [Strongly Sust.]
+  [pop1] bpt=pentium_m l1da=8 l1d=32 l1ia=4 l1i=16 l2a=4 l2=256 l3a=4 l3=1024 robc=2 robd=2 robw=256  ASI= 2.7131  S=1.0004  A=  38.50  P= 15.13  [Strongly Sust.]
+  [pop1] bpt=pentium_m l1da=8 l1d=32 l1ia=4 l1i=16 l2a=4 l2=256 l3a=4 l3=1024 robc=2 robd=2 robw=16  ASI= 2.8496  S=1.0003  A=  38.17  P= 14.44  [Strongly Sust.]
+  [pop1] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=16 l2a=8 l2=128 l3a=4 l3=1024 robc=4 robd=2 robw=16  ASI= 2.9213  S=0.9745  A=  34.75  P= 14.40  [Strongly Sust.]
+  [pop1] bpt=pentium_m l1da=8 l1d=64 l1ia=4 l1i=16 l2a=4 l2=512 l3a=16 l3=1024 robc=4 robd=2 robw=256  ASI= 2.3613  S=1.0605  A=  47.59  P= 16.33  [Strongly Sust.]
+  [pop1] bpt=pentium_m l1da=8 l1d=64 l1ia=4 l1i=16 l2a=8 l2=512 l3a=16 l3=1024 robc=2 robd=4 robw=512  ASI= 0.3748  S=1.0608  A=  57.72  P= 95.43  [Unsustainable]
+  [pop1] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=4 l2=512 l3a=16 l3=1024 robc=4 robd=2 robw=16  ASI= 2.4713  S=1.0605  A=  45.11  P= 15.87  [Strongly Sust.]
+  [pop1] bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=16 l2a=8 l2=128 l3a=4 l3=1024 robc=2 robd=2 robw=256  ASI= 2.9532  S=0.9732  A=  33.28  P= 14.38  [Strongly Sust.]
+  Evaluating population 2 (20 entities)...
+  [pop2] bpt=pentium_m l1da=4 l1d=16 l1ia=4 l1i=32 l2a=8 l2=512 l3a=4 l3=2048 robc=4 robd=2 robw=128  ASI= 2.3575  S=1.0581  A=  47.89  P= 16.32  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=4 l2=128 l3a=8 l3=1024 robc=4 robd=2 robw=16  ASI= 2.9101  S=0.9745  A=  35.38  P= 14.40  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=64 l2a=4 l2=128 l3a=4 l3=1024 robc=2 robd=2 robw=256  ASI= 2.9217  S=0.9732  A=  34.09  P= 14.46  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=4 l2=128 l3a=8 l3=1024 robc=2 robd=2 robw=128  ASI= 2.8081  S=0.9744  A=  35.59  P= 14.90  [Strongly Sust.]
+  [pop2] bp=512 bpt=a53 l1da=4 l1d=32 l1ia=4 l1i=64 l2a=8 l2=128 l3a=8 l3=1024 nhist=2 robc=2 robd=2 robw=128  ASI= 2.9581  S=0.9731  A=  33.99  P= 14.29  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=64 l1ia=4 l1i=64 l2a=8 l2=128 l3a=8 l3=2048 robc=4 robd=2 robw=128  ASI= 2.7081  S=0.9746  A=  39.37  P= 15.07  [Strongly Sust.]
+  [pop2] bpt=tage l1da=4 l1d=64 l1ia=4 l1i=16 l2a=4 l2=512 l3a=4 l3=1024 robc=8 robd=2 robw=16  ASI= 2.6748  S=1.0605  A=  40.76  P= 15.11  [Strongly Sust.]
+  [pop2] bpt=tage l1da=4 l1d=16 l1ia=4 l1i=32 l2a=8 l2=512 l3a=4 l3=1024 robc=4 robd=2 robw=16  ASI= 2.6778  S=1.0581  A=  40.73  P= 15.10  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=64 l2a=8 l2=128 l3a=4 l3=1024 robc=2 robd=2 robw=128  ASI= 2.9600  S=0.9731  A=  34.00  P= 14.28  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=64 l2a=8 l2=128 l3a=4 l3=2048 robc=4 robd=2 robw=128  ASI= 2.6913  S=0.9731  A=  40.95  P= 15.00  [Strongly Sust.]
+  [pop2] bpt=tage l1da=4 l1d=16 l1ia=4 l1i=16 l2a=8 l2=512 l3a=4 l3=1024 robc=4 robd=2 robw=32  ASI= 2.6519  S=1.0581  A=  40.57  P= 15.26  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=64 l2a=8 l2=128 l3a=4 l3=1024 robc=2 robd=2 robw=128  ASI= 2.9600  S=0.9731  A=  34.00  P= 14.28  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=64 l2a=8 l2=128 l3a=4 l3=1024 robc=2 robd=2 robw=128  ASI= 2.9600  S=0.9731  A=  34.00  P= 14.28  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=64 l2a=8 l2=128 l3a=4 l3=1024 robc=2 robd=2 robw=128  ASI= 2.9600  S=0.9731  A=  34.00  P= 14.28  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 robc=10 robd=2 robw=16  ASI= 2.8417  S=1.0004  A=  36.18  P= 14.67  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=64 l2a=8 l2=128 l3a=4 l3=2048 robc=2 robd=2 robw=128  ASI= 2.6912  S=0.9731  A=  40.95  P= 15.00  [Strongly Sust.]
+  [pop2] bp=512 bpt=a53 l1da=4 l1d=64 l1ia=4 l1i=64 l2a=8 l2=128 l3a=8 l3=2048 nhist=2 robc=4 robd=2 robw=128  ASI= 2.7081  S=0.9745  A=  39.37  P= 15.07  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=32 l2a=8 l2=512 l3a=8 l3=1024 robc=4 robd=2 robw=32  ASI= 2.4943  S=1.0581  A=  42.53  P= 16.01  [Strongly Sust.]
+  [pop2] bpt=tage l1da=4 l1d=32 l1ia=4 l1i=64 l2a=8 l2=512 l3a=4 l3=1024 robc=2 robd=2 robw=16  ASI= 2.6456  S=1.0589  A=  41.51  P= 15.20  [Strongly Sust.]
+  [pop2] bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=16 l2a=8 l2=512 l3a=8 l3=2048 robc=4 robd=2 robw=16  ASI= 2.3207  S=1.0606  A=  47.67  P= 16.60  [Strongly Sust.]
+  Deleted 41 discarded output directories.
+
+  Combined Pareto front after generation 4 (16 points, HV=3.2693):
+  Params                                  ASI  Speedup     Area  PeakPow  Region
+  ──────────────────────────────────────────────────────────────────────────────
+  bp=1024 bpt=a53 l1da=4 l1d=64 l1ia=8 l1i=16 l2a=8 l2=512 l3a=16 l3=1024 nhist=3 robc=2 robd=8 robw=1024   0.0070   1.0608   157.56  1188.00  Unsustainable
+  bpt=pentium_m l1da=8 l1d=64 l1ia=4 l1i=16 l2a=8 l2=512 l3a=16 l3=1024 robc=2 robd=4 robw=512   0.3748   1.0608    57.72    95.43  Unsustainable
+  bpt=pentium_m l1da=4 l1d=64 l1ia=4 l1i=16 l2a=8 l2=512 l3a=4 l3=1024 robc=2 robd=2 robw=1024   1.1558   1.0608    45.64    33.82  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=4 l2=512 l3a=8 l3=2048 robc=4 robd=2 robw=256   2.2207   1.0607    48.56    17.24  Strongly Sust.
+  bpt=tage l1da=4 l1d=64 l1ia=8 l1i=16 l2a=8 l2=512 l3a=4 l3=2048 robc=10 robd=2 robw=16   2.2940   1.0607    49.42    16.59  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=64 l1ia=4 l1i=32 l2a=8 l2=512 l3a=16 l3=2048 robc=4 robd=2 robw=32   2.3800   1.0606    48.12    16.14  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=8 l2=512 l3a=4 l3=1024 robc=10 robd=2 robw=16   2.5075   1.0605    43.13    15.86  Strongly Sust.
+  bpt=tage l1da=4 l1d=64 l1ia=4 l1i=16 l2a=4 l2=512 l3a=4 l3=1024 robc=8 robd=2 robw=16   2.6748   1.0605    40.76    15.11  Strongly Sust.
+  bpt=tage l1da=4 l1d=16 l1ia=4 l1i=32 l2a=8 l2=512 l3a=4 l3=1024 robc=4 robd=2 robw=16   2.6778   1.0581    40.73    15.10  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 robc=2 robd=2 robw=16   2.8286   1.0018    36.35    14.72  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 robc=10 robd=2 robw=16   2.8417   1.0004    36.18    14.67  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 robc=10 robd=2 robw=16   2.8417   1.0004    36.18    14.67  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=1024 robc=10 robd=2 robw=16   2.8550   1.0003    35.52    14.66  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=16 l2a=8 l2=256 l3a=4 l3=1024 robc=10 robd=2 robw=128   2.9034   1.0000    34.66    14.50  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=16 l2a=8 l2=256 l3a=4 l3=1024 robc=2 robd=2 robw=16   3.0118   0.9999    34.45    14.00  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=16 l2a=8 l2=128 l3a=4 l3=1024 robc=2 robd=2 robw=16   3.1091   0.9731    32.96    13.69  Strongly Sust.
+  Ran sniper 40 times this generation (237 total).
+
+  No hypervolume improvement for 1 generations — converged.
+
+Total sniper runs: 237
+Final hypervolume: 3.2693
+
+Plot saved → /home/jaco/school/stage/asi/asi-output/pareto_history.png
+Plot saved → /home/jaco/school/stage/asi/asi-output/pareto_final.png
+=== Final Pareto Front ===
+  Params                                  ASI  Speedup     Area  PeakPow  Region
+  ──────────────────────────────────────────────────────────────────────────────
+  bp=1024 bpt=a53 l1da=4 l1d=64 l1ia=8 l1i=16 l2a=8 l2=512 l3a=16 l3=1024 nhist=3 robc=2 robd=8 robw=1024   0.0070   1.0608   157.56  1188.00  Unsustainable
+  bpt=pentium_m l1da=8 l1d=64 l1ia=4 l1i=16 l2a=8 l2=512 l3a=16 l3=1024 robc=2 robd=4 robw=512   0.3748   1.0608    57.72    95.43  Unsustainable
+  bpt=pentium_m l1da=4 l1d=64 l1ia=4 l1i=16 l2a=8 l2=512 l3a=4 l3=1024 robc=2 robd=2 robw=1024   1.1558   1.0608    45.64    33.82  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=4 l2=512 l3a=8 l3=2048 robc=4 robd=2 robw=256   2.2207   1.0607    48.56    17.24  Strongly Sust.
+  bpt=tage l1da=4 l1d=64 l1ia=8 l1i=16 l2a=8 l2=512 l3a=4 l3=2048 robc=10 robd=2 robw=16   2.2940   1.0607    49.42    16.59  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=64 l1ia=4 l1i=32 l2a=8 l2=512 l3a=16 l3=2048 robc=4 robd=2 robw=32   2.3800   1.0606    48.12    16.14  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=8 l2=512 l3a=4 l3=1024 robc=10 robd=2 robw=16   2.5075   1.0605    43.13    15.86  Strongly Sust.
+  bpt=tage l1da=4 l1d=64 l1ia=4 l1i=16 l2a=4 l2=512 l3a=4 l3=1024 robc=8 robd=2 robw=16   2.6748   1.0605    40.76    15.11  Strongly Sust.
+  bpt=tage l1da=4 l1d=16 l1ia=4 l1i=32 l2a=8 l2=512 l3a=4 l3=1024 robc=4 robd=2 robw=16   2.6778   1.0581    40.73    15.10  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=64 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 robc=2 robd=2 robw=16   2.8286   1.0018    36.35    14.72  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 robc=10 robd=2 robw=16   2.8417   1.0004    36.18    14.67  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=64 l2a=4 l2=256 l3a=8 l3=1024 robc=10 robd=2 robw=16   2.8417   1.0004    36.18    14.67  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=32 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=1024 robc=10 robd=2 robw=16   2.8550   1.0003    35.52    14.66  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=16 l2a=8 l2=256 l3a=4 l3=1024 robc=10 robd=2 robw=128   2.9034   1.0000    34.66    14.50  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=16 l2a=8 l2=256 l3a=4 l3=1024 robc=2 robd=2 robw=16   3.0118   0.9999    34.45    14.00  Strongly Sust.
+  bpt=pentium_m l1da=4 l1d=32 l1ia=4 l1i=16 l2a=8 l2=128 l3a=4 l3=1024 robc=2 robd=2 robw=16   3.1091   0.9731    32.96    13.69  Strongly Sust.
