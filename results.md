@@ -4,6 +4,7 @@ ML2: L2 resident (depending on LFSR settings) linked list traversal
 ## Greedy
 
 ![Paste your picture here](./images_results/ML2_greedy.png)
+![Paste your picture here](./images_results/ML2_greedy_hv_vs_sims.png)
 
 **Result:**
 
@@ -48,6 +49,7 @@ Final hypervolume: 3.2594
 Hyperparameter settings: Patience = 1 (amount of iterations to wait before stopping after no improvement), max_iterations: int = 10. (max iter never reached)
 
 ![Paste your picture here](./images_results/ML2_spea2.png)
+![Paste your picture here](./images_results/ML2_spea2_hv_vs_sims.png)
 
 **Result:**
 
@@ -83,6 +85,7 @@ Hyperparameter settings: 400 candidate samples (400 candidate configurations are
 
 #### 20 iterations
 ![Paste your picture here](./images_results/ML2_mesmo_400_20iters.png)
+![Paste your picture here](./images_results/ML2_mesmo_400_20iters_hv_vs_sims.png)
 
 **Result:**
 
@@ -107,6 +110,7 @@ Final hypervolume: 3.1908
 
 ### 60 iterations
 ![Paste your picture here](./images_results/ML2_mesmo_400_60iters.png)
+![Paste your picture here](./images_results/ML2_mesmo_400_60iters_hv_vs_sims.png)
 
 **Result:**
 
@@ -145,6 +149,7 @@ Final hypervolume: 3.2056
 
 ### 200 iterations
 ![Paste your picture here](./images_results/ML2_mesmo_400_200iters.png)
+![Paste your picture here](./images_results/ML2_mesmo_400_200iters_hv_vs_sims.png)
 
 **Result:**
 
@@ -200,6 +205,7 @@ Hyperparameter settings: Patience = 1 (amount of iterations to wait before stopp
 folowing parameters are default: num_populations: int = 3, population_size: int = 20, archive_size: int = 10, p_mutation: float = 0.10, p_crossover: float = 0.90, p_migration: float = 0.10.
 
 ![Paste your picture here](./images_results/ML2_and_CCl_spea2.png)
+![Paste your picture here](./images_results/ML2_and_CCl_spea2_hv_vs_sims.png)
 
 **Result:**
 
@@ -235,6 +241,7 @@ Final hypervolume: 3.1294
 hyperparameter settings: 200 candidate samples (200 candidate configurations are considered per iteration; each is scored by the information gained, averaged over a default of 10 Monte Carlo posterior-function samples (amount is hyperparameter, default is 10), and the top-scoring one (also hyperparameter, default is 1) is evaluated.) are used and 5 initial configurations (including baseline, always the case!) have been run. 20 iterations.
 
 ![Paste your picture here](./images_results/ML2_and_CCl_mesmo.png)
+![Paste your picture here](./images_results/ML2_and_CCl_mesmo_hv_vs_sims.png)
 
 **Result:**
 
@@ -261,6 +268,7 @@ hyperparameter settings: 400 candidate samples are used and 7 initial configurat
 #### 20 iterations
 
 ![Paste your picture here](./images_results/ML2_and_CCl_mesmo_400.png)
+![Paste your picture here](./images_results/ML2_and_CCl_mesmo_400_hv_vs_sims.png)
 
 **Result:**
 
@@ -283,6 +291,7 @@ Final hypervolume: 2.8076
 #### 30 iterations
 
 ![Paste your picture here](./images_results/ML2_and_CCl_mesmo_400_30iters.png)
+![Paste your picture here](./images_results/ML2_and_CCl_mesmo_400_30iters_hv_vs_sims.png)
 
 **Result:**
 
@@ -310,6 +319,7 @@ Final hypervolume: 2.8132
 #### 40 iterations
 
 ![Paste your picture here](./images_results/ML2_and_CCl_mesmo_400_40iters.png)
+![Paste your picture here](./images_results/ML2_and_CCl_mesmo_400_40iters_hv_vs_sims.png)
 
 **Result:**
 
@@ -404,6 +414,7 @@ EI: Integer Execution -- 8 Independent computations per iteration
 hyperparameter settings: 200 candidate samples are used and 5 initial configurations are ran. 20 iterations.
 
 ![Paste your picture here](./images_results/ML2_CCl_MIP_EI_mesmo.png)
+![Paste your picture here](./images_results/ML2_CCl_MIP_EI_mesmo_hv_vs_sims.png)
 
 **Result:**
 
@@ -426,6 +437,7 @@ Final hypervolume: 2.7310
 hyperparameter settings: 400 candidate samples are used and 5 initial configurations are ran. 20 iterations. 4 benchmarks: ML2, CCl, MIP and EI.
 
 ![Paste your picture here](./images_results/ML2_CCl_MIP_EI_mesmo_400.png)
+![Paste your picture here](./images_results/ML2_CCl_MIP_EI_mesmo_400_hv_vs_sims.png)
 
 **Result:**
 
@@ -456,6 +468,7 @@ hyperparameter settings: 400 candidate samples are used and 7 initial configurat
 ## 20 iterations
 
 ![Paste your picture here](./images_results/ML2_CCl_MIP_EI_mesmo_400_7.png)
+![Paste your picture here](./images_results/ML2_CCl_MIP_EI_mesmo_400_7_hv_vs_sims.png)
 
 **Result:**
 
@@ -482,6 +495,7 @@ Final hypervolume: 2.5351
 ## 100 iterations
 
 ![Paste your picture here](./images_results/ML2_CCl_MIP_EI_mesmo_400_7_100iters.png)
+![Paste your picture here](./images_results/ML2_CCl_MIP_EI_mesmo_400_7_100iters_hv_vs_sims.png)
 
 **Result:**
 
@@ -517,6 +531,7 @@ Final hypervolume: 2.9794
 Hyperparameter settings: Patience = 1 (amount of iterations to wait before stopping after no improvement), max_iterations: int = 10. (max iter never reached)
 
 ![Paste your picture here](./images_results/ML2_CCl_MIP_EI_spea2.png)
+![Paste your picture here](./images_results/ML2_CCl_MIP_EI_spea2_hv_vs_sims.png)
 
 **Result:**
 
