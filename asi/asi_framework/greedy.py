@@ -5,7 +5,7 @@ from typing import Any, ClassVar
 from .models import DesignPoint
 from .runner import run
 from .config import (
-    PARAM_SPACE, DEFAULT_ALPHA, DEFAULT_REF_ASI, DEFAULTS, DEFAULT_BRANCH_PREDICTOR_TYPE,
+    PARAM_SPACE, DEFAULT_ALPHA, DEFAULTS, DEFAULT_BRANCH_PREDICTOR_TYPE,
     BRANCH_PREDICTOR_PARAMS, CONDITIONAL_PARAMS, active_params,
 )
 from .plot import plot_pareto_front_on_asi, plot_pareto_fronts_on_asi, plot_hv_vs_simulations
@@ -33,7 +33,7 @@ def fmt_params(params: dict[str, Any]) -> str:
     predictor a point used is important enough to want visible at a glance
     even on points that still use the a53 default, not just the ones where
     the search actually varied it."""
-    if not params:
+    if not params or all(params[p] == DEFAULTS[p] for p in params):
         return "baseline"
     bp_type = params.get("branch_predictor_type", DEFAULTS.get("branch_predictor_type", DEFAULT_BRANCH_PREDICTOR_TYPE))
     shown = {**params, "branch_predictor_type": bp_type}
@@ -105,10 +105,24 @@ def evaluate_point(
     baseline: DesignPoint,
     alpha: float,
     global_cache: dict[frozenset, DesignPoint],
-) -> tuple[DesignPoint | None, bool]:
-    """Returns (point, ran_sniper) -- ran_sniper is False on a cache hit and
-    True whenever run() was actually invoked (including on failure), so
-    callers can count real Sniper executions separately from cache hits."""
+) -> tuple[DesignPoint | None, bool, int]:
+    """Returns (point, ran_sniper, sniper_invocations).
+
+    ran_sniper is False on a cache hit and True whenever run() was actually
+    invoked at least once (including on failure) -- this is what callers
+    accumulate into sniper_runs/sim_history, i.e. one unit per *configuration
+    evaluated* (a full sweep over every given benchmark), matching what a
+    search iteration/generation actually spends its budget on.
+
+    sniper_invocations is the number of real run() calls actually made for
+    this point (0 on a cache hit, len(benchmarks) on a full real evaluation,
+    or however many benchmarks it got through before a failure) -- the raw
+    count of literal Sniper subprocess executions, which is
+    len(benchmarks)x larger than ran_sniper's per-configuration count
+    whenever more than one benchmark is given. Kept separate from
+    ran_sniper/sniper_runs (rather than replacing it) since the latter is
+    what search strategies actually reason about one-per-iteration; this is
+    just for reporting real simulator cost at the end of a run."""
     key = params_key(params)
     if key in global_cache:
         cached = global_cache[key]
@@ -122,17 +136,19 @@ def evaluate_point(
             modified_params=modified_params,
             output_path=cached.output_path,
             per_benchmark=cached.per_benchmark,
-        ), False
+        ), False, 0
 
     areas: list[float] = []
     powers: list[float] = []
     per_benchmark: dict[str, dict[str, float]] = {}
+    sniper_invocations = 0
     for name, cmd in benchmarks.items():
+        sniper_invocations += 1
         try:
             area, peak_power, time = run(reference_config, sniper, output_path / name, cmd, params)
         except Exception as exc:
             print(f"    FAILED ({output_path.name}/{name}): {exc}")
-            return None, True
+            return None, True, sniper_invocations
         areas.append(area)
         powers.append(peak_power)
         per_benchmark[name] = {"time": time}
@@ -152,7 +168,7 @@ def evaluate_point(
     point.asi = calculate_asi(baseline.area, point.area, baseline.peak_power, point.peak_power, alpha)
     point.speedup = geomean([data["speedup"] for data in per_benchmark.values()])
     global_cache[key] = point
-    return point, True
+    return point, True, sniper_invocations
 
 
 def compute_baseline(
@@ -161,16 +177,25 @@ def compute_baseline(
     baseline_dir: Path,
     benchmarks: dict[str, list[str]],
 ) -> DesignPoint:
-    """Runs every benchmark once with no parameter overrides to get the
-    reference-config baseline DesignPoint (asi=speedup=1.0 by definition,
-    since it's compared against itself). Shared by every strategy's own
-    baseline step (greedy, spea2) and by screening.screen_param_space."""
+    """Runs every benchmark once with every parameter forced to its
+    param_space.json default (DEFAULTS, i.e. each param list's first entry)
+    to get the reference-config baseline DesignPoint (asi=speedup=1.0 by
+    definition, since it's compared against itself). Shared by every
+    strategy's own baseline step (greedy, spea2) and by
+    screening.screen_param_space.
+
+    Deliberately overrides with DEFAULTS rather than running the reference
+    .cfg file unmodified: DEFAULTS is the single source of truth for "what
+    the baseline hardware is" (see config.py's PARAM_SPACE/DEFAULTS
+    docstring), and a candidate point evaluated at exactly the default
+    values must simulate identically to the baseline. If the reference .cfg
+    disagrees with DEFAULTS on some parameter, DEFAULTS wins here."""
     areas: list[float] = []
     powers: list[float] = []
     per_benchmark: dict[str, dict[str, float]] = {}
     for name, cmd in benchmarks.items():
         try:
-            area, peak_power, time = run(reference_config, sniper, baseline_dir / name, cmd, {})
+            area, peak_power, time = run(reference_config, sniper, baseline_dir / name, cmd, DEFAULTS)
         except Exception as exc:
             raise RuntimeError(f"Baseline run failed ({name}): {exc}") from exc
         areas.append(area)
@@ -178,88 +203,11 @@ def compute_baseline(
         per_benchmark[name] = {"time": time, "speedup": 1.0}
 
     return DesignPoint(
-        params={}, area=sum(areas) / len(areas), peak_power=sum(powers) / len(powers),
+        params=dict(DEFAULTS), area=sum(areas) / len(areas), peak_power=sum(powers) / len(powers),
         time=sum(d["time"] for d in per_benchmark.values()) / len(per_benchmark),
         asi=1.0, speedup=1.0, modified_params=set(), output_path=baseline_dir,
         per_benchmark=per_benchmark,
     )
-
-
-def compute_reference_asi(
-    reference_config: str,
-    sniper: Path,
-    outputdir: Path,
-    benchmarks: dict[str, list[str]],
-    baseline: DesignPoint,
-    alpha: float,
-    global_cache: dict[frozenset, DesignPoint],
-    param_space: dict[str, list],
-) -> float:
-    """The `ref_asi` reference point every hypervolume() call below is
-    anchored to: the worst (minimum) ASI reachable by pushing every
-    parameter to its *largest* candidate value, minimized over every
-    `branch_predictor_type` choice (a53/nn/pentium_m/tage aren't ordered --
-    "largest" doesn't mean anything when picking among them -- so each type
-    is tried with its own knobs maxed and the worst of the four is kept).
-
-    Why not hypervolume's plain 0.0 default (the origin)? Because ASI=0
-    would mean infinite area/power relative to baseline -- no real
-    configuration gets anywhere near it, so anchoring there credits a front
-    with hypervolume for merely beating a physically-impossible strawman,
-    which makes the number float almost entirely on *speedup* and tells you
-    little about the area/power side of the tradeoff. Anchoring instead at
-    the worst design this PARAM_SPACE can actually produce (every knob at
-    its max, e.g. every cache at its largest size, the widest ROB, ...)
-    means hypervolume only credits a front for clearing the worst *real*
-    alternative in this search space, which is what makes it meaningful to
-    compare across runs, strategies, and alpha values on the same space.
-
-    This is specific to the current param_space.json: if you add, remove, or
-    rescale a parameter's candidate values, the old ref_asi no longer
-    describes "the worst point in the space" and every hypervolume figure
-    computed against it (including past hv_vs_sims.png plots) stops being
-    comparable to new runs. Each strategy recomputes it automatically at the
-    start of a fresh (non-resumed) run and checkpoints it in
-    search_state.json; delete that file (or use a new --outputdir) to force
-    a recompute after editing the parameter space.
-
-    Only area/peak_power feed into ASI (see calculate_asi) -- speedup never
-    does -- so which benchmark(s) are used here barely matters; for
-    simplicity/consistency (and so results are cached the same way as every
-    other evaluated point) this reuses whatever `benchmarks` the run was
-    invoked with rather than picking a separate one.
-
-    Costs up to 4 extra real Sniper simulations the first time a fresh
-    search starts (cached via global_cache/evaluate_point like everything
-    else), amortized across the whole run exactly like the baseline itself.
-    """
-    default_bp_type = DEFAULTS.get("branch_predictor_type", DEFAULT_BRANCH_PREDICTOR_TYPE)
-    bp_types = param_space.get("branch_predictor_type", [default_bp_type])
-    worst: list[float] = []
-    for bp_type in bp_types:
-        active = active_params(param_space, bp_type)
-        params: dict[str, Any] = {}
-        if bp_type != default_bp_type:
-            params["branch_predictor_type"] = bp_type
-        for param, values in param_space.items():
-            if param == "branch_predictor_type" or param not in active:
-                continue
-            largest = max(values)
-            if largest != DEFAULTS[param]:
-                params[param] = largest
-        out = outputdir / f"refpoint_{bp_type}"
-        point, _ = evaluate_point(
-            params, set(params), out, reference_config, sniper, benchmarks, baseline, alpha, global_cache,
-        )
-        if point is None:
-            print(f"  [{bp_type}] worst-case (max-params) point FAILED — excluded from ref_asi.")
-            continue
-        print(f"  [{bp_type}] worst-case (max-params) ASI = {point.asi:.4f}  "
-              f"(A={point.area:.2f} mm²  P={point.peak_power:.2f} W)")
-        worst.append(point.asi)
-    if not worst:
-        return 0.0
-    return min(worst)
 
 
 def update_pareto_front(front: list[DesignPoint], points: list[DesignPoint]) -> list[DesignPoint]:
@@ -270,19 +218,24 @@ def update_pareto_front(front: list[DesignPoint], points: list[DesignPoint]) -> 
     ]
 
 
-def hypervolume(front: list[DesignPoint], ref_asi: float = 0.0, ref_speedup: float = 0.0) -> float:
-    """2D hypervolume of a maximizing Pareto front relative to a reference
-    point that's worse than every point on both axes (the origin, since ASI
-    and speedup are always positive here). Shared by both search strategies
-    so a final front can be compared across runs/strategies on the same
-    scale, not just generation-to-generation within a single spea2 run."""
+def hypervolume(front: list[DesignPoint]) -> float:
+    """2D hypervolume of a maximizing Pareto front relative to the origin
+    (ASI=0, speedup=0), the reference point every strategy compares progress
+    against. A point with a negative ASI or speedup still belongs on the
+    Pareto front (and is still drawn on the plots) -- it just contributes
+    nothing to hypervolume on the axis where it falls below the origin,
+    via the max(0.0, ...) clamps below -- so hypervolume alone never
+    describes those points, only where they stand relative to the rest of
+    the front. Shared by every search strategy so a final front can be
+    compared across runs/strategies on the same scale, not just
+    generation-to-generation within a single run."""
     if not front:
         return 0.0
     pts = sorted(front, key=lambda p: p.speedup)  # ascending speedup => non-increasing asi
     hv = 0.0
-    prev_speedup = ref_speedup
+    prev_speedup = 0.0
     for p in pts:
-        hv += max(0.0, p.asi - ref_asi) * max(0.0, p.speedup - prev_speedup)
+        hv += max(0.0, p.asi) * max(0.0, p.speedup - prev_speedup)
         prev_speedup = p.speedup
     return hv
 
@@ -319,10 +272,11 @@ class GreedySearchState:
     freeze_count: dict[str, int]
     sensitivity_history: dict[str, tuple[list[float], list[float]]]
     sniper_runs: int
+    sniper_invocations: int
     param_space: dict[str, list]
-    ref_asi: float
     hv_history: list[float]
     sim_history: list[int]
+    pareto_size_history: list[int]
 
     def matches(self, reference_config: str, benchmarks: dict[str, list[str]], alpha: float) -> bool:
         """Also checked against the live PARAM_SPACE: a resumed search only
@@ -353,10 +307,11 @@ class GreedySearchState:
             "freeze_count": self.freeze_count,
             "sensitivity_history": self.sensitivity_history,
             "sniper_runs": self.sniper_runs,
+            "sniper_invocations": self.sniper_invocations,
             "param_space": self.param_space,
-            "ref_asi": self.ref_asi,
             "hv_history": self.hv_history,
             "sim_history": self.sim_history,
+            "pareto_size_history": self.pareto_size_history,
         }
 
     @classmethod
@@ -380,10 +335,11 @@ class GreedySearchState:
             freeze_count=d["freeze_count"],
             sensitivity_history=sensitivity_history,
             sniper_runs=d.get("sniper_runs", 0),
+            sniper_invocations=d.get("sniper_invocations", 0),
             param_space=d.get("param_space", {}),
-            ref_asi=d.get("ref_asi", 0.0),
             hv_history=d.get("hv_history", []),
             sim_history=d.get("sim_history", []),
+            pareto_size_history=d.get("pareto_size_history", []),
         )
 
     def save(self, outputdir: Path) -> None:
@@ -409,7 +365,6 @@ def explore_pareto_front_with_sensitivity(
     benchmarks: dict[str, list[str]],
     alpha: float = DEFAULT_ALPHA,
     max_iterations: int = 5,
-    compute_ref_asi: bool = False,
     initial_cache: dict[frozenset, DesignPoint] | None = None,
 ) -> list[DesignPoint]:
     """
@@ -419,15 +374,6 @@ def explore_pareto_front_with_sensitivity(
     with screening.screen_param_space's cache, so the baseline and any
     already-evaluated points it found are reused instead of re-run. Ignored
     when resuming a saved search, which already has its own global_cache.
-
-    compute_ref_asi controls how the hypervolume reference point (ref_asi,
-    see compute_reference_asi()'s docstring) is obtained on a fresh start:
-    False (default) just uses config.DEFAULT_REF_ASI, a precomputed constant
-    valid only for the shipped param_space.json at DEFAULT_ALPHA; True
-    recomputes it for real (up to 4 extra Sniper simulations) against
-    whatever PARAM_SPACE/alpha this run is actually using -- required after
-    editing param_space.json or changing --alpha if you want a correct
-    (rather than merely reused) reference point.
     """
     SENSITIVITY_MIN_SAMPLES = 3
     SENSITIVITY_THRESHOLD = 0.05
@@ -447,7 +393,7 @@ def explore_pareto_front_with_sensitivity(
     else:
         # --- Baseline ---
         global_cache: dict[frozenset, DesignPoint] = dict(initial_cache) if initial_cache else {}
-        baseline_key = params_key({})
+        baseline_key = params_key(DEFAULTS)
         if baseline_key in global_cache:
             baseline = global_cache[baseline_key]
             print(f"Using baseline from pre-evaluation screening cache ({len(global_cache)} cached point"
@@ -462,24 +408,13 @@ def explore_pareto_front_with_sensitivity(
             print(f"    {name}: Time={d['time']:.0f} ns")
         print()
 
-        if compute_ref_asi:
-            print("Computing hypervolume reference point (worst-case ASI per branch predictor)...")
-            ref_asi = compute_reference_asi(
-                reference_config, sniper, outputdir, benchmarks, baseline, alpha, global_cache, PARAM_SPACE,
-            )
-            print(f"  ref_asi = {ref_asi:.4f}\n")
-        else:
-            ref_asi = DEFAULT_REF_ASI
-            print(f"Using precomputed hypervolume reference point ref_asi={ref_asi:.4f} "
-                  f"(pass --compute-ref-asi to recompute it for this PARAM_SPACE/alpha).\n")
-
         state = GreedySearchState(
             reference_config=str(reference_config), benchmarks=benchmarks, alpha=alpha, iteration=0,
             baseline=baseline, pareto_set=[baseline], pareto_set_history=[[baseline]], newly_added=[baseline],
             global_cache=global_cache, frozen_until={}, freeze_count={},
             sensitivity_history={p: ([], []) for p in PARAM_SPACE},
-            sniper_runs=0, param_space=PARAM_SPACE, ref_asi=ref_asi,
-            hv_history=[hypervolume([baseline], ref_asi=ref_asi)], sim_history=[0],
+            sniper_runs=0, sniper_invocations=0, param_space=PARAM_SPACE,
+            hv_history=[hypervolume([baseline])], sim_history=[0], pareto_size_history=[1],
         )
         state.save(outputdir)
 
@@ -525,13 +460,14 @@ def explore_pareto_front_with_sensitivity(
 
         evaluated: list[DesignPoint] = []
         runs_this_iter = 0
+        invocations_this_iter = 0
         for i, (params, modified, varied_param, parent_asi, parent_speedup) in enumerate(search_set):
             out = outputdir / f"iter{iteration}_run{i}"
-            point, ran = evaluate_point(
+            point, ran, invocations = evaluate_point(
                 params, modified, out, reference_config, sniper, state.benchmarks, state.baseline, alpha, state.global_cache,
             )
-            if ran:
-                runs_this_iter += 1
+            runs_this_iter += ran
+            invocations_this_iter += invocations
             if point is None:
                 continue
             evaluated.append(point)
@@ -543,6 +479,7 @@ def explore_pareto_front_with_sensitivity(
                 abs(point.speedup - parent_speedup) / max(parent_speedup, 1e-9)
             )
         state.sniper_runs += runs_this_iter
+        state.sniper_invocations += invocations_this_iter
 
         # Sensitivity-based parameter freezing
         for param, (d_asi, d_spd) in state.sensitivity_history.items():
@@ -571,9 +508,10 @@ def explore_pareto_front_with_sensitivity(
 
         state.newly_added = [p for p in evaluated if p in state.pareto_set]
 
-        hv = hypervolume(state.pareto_set, ref_asi=state.ref_asi)
+        hv = hypervolume(state.pareto_set)
         state.hv_history.append(hv)
         state.sim_history.append(state.sniper_runs)
+        state.pareto_size_history.append(len(state.pareto_set))
 
         print(f"\n  Pareto front after iteration {iteration} "
               f"({len(state.pareto_set)} point{'s' if len(state.pareto_set) != 1 else ''}, HV={hv:.4f}):")
@@ -590,8 +528,9 @@ def explore_pareto_front_with_sensitivity(
     if n:
         print(f"Final cleanup: removed {n} stale output director{'y' if n == 1 else 'ies'}.")
 
-    print(f"Total sniper runs: {state.sniper_runs}")
-    print(f"Final hypervolume: {hypervolume(state.pareto_set, ref_asi=state.ref_asi):.4f} (ref_asi={state.ref_asi:.4f})\n")
+    print(f"Configurations evaluated: {state.sniper_runs}")
+    print(f"Total sniper invocations: {state.sniper_invocations}")
+    print(f"Final hypervolume: {hypervolume(state.pareto_set):.4f}\n")
 
     plot_pareto_fronts_on_asi(
         state.pareto_set_history, title="ASI Pareto Fronts by Iteration",
@@ -603,7 +542,8 @@ def explore_pareto_front_with_sensitivity(
         save_path=outputdir / "pareto_final.png", show=False,
     )
     plot_hv_vs_simulations(
-        state.sim_history, state.hv_history, title="Hypervolume vs. Simulations (greedy)",
+        state.sim_history, state.hv_history, state.pareto_size_history,
+        title="Hypervolume & Pareto Front Size vs. Simulations (greedy)",
         save_path=outputdir / "hv_vs_sims.png", show=False,
     )
 

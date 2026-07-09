@@ -15,20 +15,22 @@ already costs a full Sniper run plus a McPAT estimate, and the parameter
 space grows multiplicatively with every added knob. The framework therefore
 implements several independent **search strategies** that each try to find a
 good Pareto front (ASI vs. speedup) while spending as few real simulations as
-possible. They are alternatives, not a pipeline — you pick one via
-`--strategy`. Currently available: `greedy` (sensitivity-based hill
-climbing), `spea2` (an evolutionary algorithm), and `mesmo` (Bayesian
-optimization). More strategies are planned; see
+possible. Pick one via `--strategy`. Currently available: `greedy`
+(sensitivity-based hill climbing), `spea2` (an evolutionary algorithm),
+`mesmo` (Bayesian optimization), and `hybrid` — the one exception to
+"alternatives, not a pipeline": it *is* a small pipeline, running `mesmo`
+until its hypervolume plateaus and then `spea2` seeded from `mesmo`'s final
+Pareto front instead of a random one. More strategies are planned; see
 [Extending: adding a new strategy](#extending-adding-a-new-strategy).
 
 ## Table of contents
 
 - [The ASI metric](#the-asi-metric)
-  - [Hypervolume and its reference point](#hypervolume-and-its-reference-point)
 - [Usage](#usage)
   - [General flags](#general-flags)
   - [`spea2` flags](#spea2-flags)
   - [`mesmo` flags](#mesmo-flags)
+  - [`hybrid` flags](#hybrid-flags)
   - [Pre-evaluation screening flags](#pre-evaluation-screening-flags)
   - [Output layout](#output-layout)
 - [Shared building blocks](#shared-building-blocks)
@@ -36,14 +38,15 @@ optimization). More strategies are planned; see
 - [Strategy: `greedy`](#strategy-greedy-sensitivity-based-hill-climbing)
 - [Strategy: `spea2`](#strategy-spea2-cole-style-evolutionary-search)
 - [Strategy: `mesmo`](#strategy-mesmo-bayesian-optimization)
+- [Strategy: `hybrid`](#strategy-hybrid-mesmo--spea2)
 - [Optional pre-processing: parameter screening](#optional-pre-processing-parameter-screening)
 - [Extending: adding a new strategy](#extending-adding-a-new-strategy)
 
 ## The ASI metric
 
-Every evaluated configuration is compared against a **baseline**: the
-reference config run with no parameter overrides. For a candidate point with
-area `Ax` and peak power `Px`, against baseline area `Ay` and peak power
+Every evaluated configuration is compared against a **baseline**: every
+parameter forced to its `DEFAULTS` value (`config.py`). For a candidate point
+with area `Ax` and peak power `Px`, against baseline area `Ay` and peak power
 `Py`:
 
 ```
@@ -73,85 +76,10 @@ Every point is classified into one of the ASI paper's sustainability regions
 | Unsustainable        | ASI falls below `min(1, 1/speedup)` |
 | Reference             | exactly the baseline (1, 1)         |
 
-### Hypervolume and its reference point
-
-Every strategy tracks **hypervolume** (`hypervolume()` in `greedy.py`) as its
-single scalar progress metric: the 2D area of the `(speedup, ASI)` plane
-dominated by the current Pareto front, relative to a reference point that's
-worse than every point on both axes. A bigger front, or a front pushed
-further into the "good" corner, scores higher — this is what lets
-generation-to-generation (or run-to-run, or strategy-to-strategy) progress
-be compared with one number instead of eyeballing a scatter plot.
-
-The reference point's `speedup` axis stays at `0` (no real configuration
-runs at negative speed, so `0` is already a valid worst case). The `ASI`
-axis is **not** left at `0`, though: `ASI=0` corresponds to *infinite*
-area/power relative to the baseline, a physically-impossible strawman no
-real configuration gets anywhere near. Anchoring there means hypervolume
-credits a front almost entirely for its *speedup*, since practically every
-evaluated point already clears such a low ASI bar — the area/power half of
-the tradeoff barely moves the score.
-
-The reference point used for `ref_asi` (the worst ASI actually reachable in
-the current `PARAM_SPACE`) is **every parameter pushed to its largest
-candidate value** (largest cache sizes, widest ROB, highest associativity,
-...) — the closest thing to a real "worst realistic design" this parameter
-space can produce. Because `branch_predictor_type` is categorical rather
-than ordered, "largest" doesn't apply to picking a predictor, so this
-worst-case configuration is built and evaluated once **per predictor type**
-(`compute_reference_asi()` in `greedy.py`), and the **minimum** ASI across
-those is what's used. Only `area`/`peak_power` feed into ASI (never
-`speedup`, see `calculate_asi()` above), so which benchmark(s) this uses
-barely matters — it reuses whichever benchmark(s) the run was already
-invoked with, rather than requiring a separate one.
-
-Actually running those up-to-4 extra Sniper simulations is real cost on top
-of the baseline, though, and most runs don't need a *fresh* answer every
-time — the worst-case-per-predictor-type configuration only depends on
-`PARAM_SPACE` and `--alpha`, not on the search itself. So it's gated behind
-an explicit flag rather than always happening automatically:
-
-| Flag | Default | Meaning |
-|---|---|---|
-| `--compute-ref-asi` | off | Actually run the up-to-4 worst-case simulations and compute `ref_asi` for real (`compute_reference_asi()`). Off by default, in which case every strategy just uses `config.DEFAULT_REF_ASI` — a plain constant, no simulations spent. |
-
-`config.DEFAULT_REF_ASI` currently ships as **`-0.0112`**: the actual
-`ref_asi` this framework computed for the checked-in `param_space.json` at
-`--alpha`'s default (`0.5`). It's negative because at that `alpha`, the
-worst-case configuration's area is already large enough relative to the
-baseline to push `calculate_asi()`'s numerator negative (see the ASI
-formula above) — a perfectly valid worst case, not a bug. Since it's a
-plain hardcoded number, it's only correct for *that exact*
-`param_space.json`/`alpha` pair; there's no way for the framework to detect
-on its own that you've since edited either one.
-
-**The intended workflow**, and the reason this is a flag rather than always
-running for real: run once with `--compute-ref-asi` (or after editing
-`param_space.json` or changing `--alpha`), read the `ref_asi = ...` value it
-prints (also echoed in the final `Final hypervolume: ... (ref_asi=...)`
-line), and paste that number into `config.DEFAULT_REF_ASI` as the new
-default. Every subsequent run — including ones exploring the same space
-with a different search strategy or seed — then gets a correct reference
-point for free, without repaying those 4 simulations every single time.
-Skipping this after a `param_space.json`/`alpha` change doesn't crash
-anything; it just makes hypervolume numbers quietly wrong (comparing
-against a stale worst case), so re-tune `DEFAULT_REF_ASI` any time either
-one changes — this is exactly the kind of thing worth a comment/commit
-message noting *why* the constant changed, since nothing else records it.
-
-If you're building on this framework with your own, larger or
-differently-scaled `PARAM_SPACE`, this is the thing to be aware of: `ref_asi`
-is a property of *your* parameter space (and `alpha`), not a universal
-constant, and only makes hypervolume numbers comparable *within* one
-space/alpha pair — don't compare a hypervolume figure from one
-`param_space.json` (or `alpha`) against a figure computed under a different
-one, and re-derive `DEFAULT_REF_ASI` with `--compute-ref-asi` before relying
-on it for anything of your own.
-
 ## Usage
 
 ```
-python asi.py --config <reference.cfg> --strategy {greedy,spea2,mesmo} \
+python asi.py --config <reference.cfg> --strategy {greedy,spea2,mesmo,hybrid} \
     [--sniper PATH] [--outputdir DIR] [--alpha A] [--iterations N] \
     [--log [PATH]] [--save-plot [PATH]] \
     [strategy-specific flags...] [pre-evaluation flags...] \
@@ -179,9 +107,8 @@ python asi.py --config nehalem.cfg --strategy spea2 --log --save-plot \
 | `--sniper` | `snipersim/run-sniper` | Path to `run-sniper`. |
 | `--outputdir`, `-d` | `asi/asi-output` | Where Sniper/McPAT outputs, plots, and the resumable search-state JSON are written. |
 | `--alpha` | `0.5` | ASI weight (0 = operational/power, 1 = embodied/area). |
-| `--strategy` | `greedy` | `greedy`, `spea2`, or `mesmo`. |
-| `--iterations` | strategy's own default | Iterations (greedy), generations (spea2), or BO iterations (mesmo). Leaving it unset lets the chosen strategy pick its own default (5 for greedy, 30 for spea2/mesmo) instead of forcing one number on all of them. |
-| `--compute-ref-asi` | off | Recompute the hypervolume `ref_asi` reference point for real (up to 4 extra Sniper simulations) instead of using the precomputed `config.DEFAULT_REF_ASI` constant. See [Hypervolume and its reference point](#hypervolume-and-its-reference-point). |
+| `--strategy` | `greedy` | `greedy`, `spea2`, `mesmo`, or `hybrid`. |
+| `--iterations` | strategy's own default | Iterations (greedy), generations (spea2, and hybrid's spea2 phase), or BO iterations (mesmo). Leaving it unset lets the chosen strategy pick its own default (5 for greedy, 30 for spea2/mesmo/hybrid) instead of forcing one number on all of them. For hybrid's mesmo-phase iteration budget, see `--mesmo-phase-iterations` in [`hybrid` flags](#hybrid-flags). |
 | `--log [PATH]` | off | Tee terminal output to `PATH` (default `outputdir/run.log`). |
 | `--save-plot [PATH]` | off | Save the final Pareto-front plot to `PATH` (default `outputdir/pareto.png`). |
 
@@ -211,6 +138,16 @@ python asi.py --config nehalem.cfg --strategy spea2 --log --save-plot \
 | `--gp-noise` | 1e-4 | GP observation noise variance (standardized units). |
 | `--mesmo-patience` | unset (disabled) | Stop after this many iterations without hypervolume improvement. Off by default because one MESMO iteration can be a single evaluation — too noisy for a short patience window. |
 
+### `hybrid` flags
+
+`hybrid` is mesmo-then-spea2 (see [Strategy: `hybrid`](#strategy-hybrid-mesmo--spea2)), so it accepts *every* `spea2` and `mesmo` flag above (including `--seed`, shared by both phases) plus one flag of its own for its mesmo phase's iteration budget. `--iterations` (see [General flags](#general-flags)) configures its **spea2** phase's generations, matching plain `--strategy spea2`.
+
+One difference from plain `mesmo`: `--mesmo-patience` still configures the mesmo phase's early-stop patience, but hybrid gives it a concrete default of **5** instead of mesmo's own "unset" default — detecting the hypervolume plateau is this phase's entire reason for existing, so hybrid can't leave it disabled the way a standalone `mesmo` run reasonably can.
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--mesmo-phase-iterations` | 30 | Max MESMO iterations in the exploration phase before switching to SPEA2 — the phase usually stops earlier once `--mesmo-patience` (default 5 here) detects a plateau. |
+
 ### Pre-evaluation screening flags
 
 Independent of `--strategy` — runs first if `--preeval-samples > 0`, and
@@ -228,9 +165,6 @@ chosen strategy starts. See [Optional pre-processing](#optional-pre-processing-p
 
 Under `--outputdir`:
 - `baseline/` — the reference config's own Sniper/McPAT run.
-- `refpoint_{branch_predictor_type}/` — the up-to-4 worst-case (every
-  parameter maxed out) runs used to derive `ref_asi` (see
-  [Hypervolume and its reference point](#hypervolume-and-its-reference-point)).
 - Per-strategy working directories for every evaluated point (e.g.
   `iter{N}_run{i}` for greedy, `gen{N}_pop{P}_ent{E}` for spea2,
   `init{i}` / `iter{N}_cand{rank}` for mesmo). Directories belonging to
@@ -243,9 +177,19 @@ Under `--outputdir`:
   parameter space are unchanged.
 - `pareto_history.png` / `pareto_final.png` — always written; `pareto.png`
   (or `--save-plot`'s path) only if `--save-plot` was passed.
-- `hv_vs_sims.png` — always written: hypervolume against the cumulative
-  count of real Sniper simulations spent to reach it (see
+- `hv_vs_sims.png` — always written: hypervolume and Pareto front size
+  against the cumulative count of real Sniper simulations spent to reach
+  them (see
   [Hypervolume-vs-simulations plot](#hypervolume-vs-simulations-plot)).
+
+**`--strategy hybrid` is the exception**: instead of writing straight into
+`--outputdir`, it creates two sub-directories, `mesmo_phase/` and
+`spea2_phase/`, and runs an entire ordinary `mesmo` / `spea2` search inside
+each — so everything above (`baseline/`, working directories,
+`search_state.json`, the plots) exists once *per phase*, under
+`outputdir/mesmo_phase/...` and `outputdir/spea2_phase/...` respectively,
+each independently resumable. See
+[Strategy: `hybrid`](#strategy-hybrid-mesmo--spea2) for why.
 
 ## Shared building blocks
 
@@ -271,16 +215,9 @@ new one doesn't mean reimplementing any of this.
   `CONDITIONAL_PARAMS` (`config.py`) build on to know which knobs are even
   meaningful for a given `branch_predictor_type` (e.g. `nn_learning_rate`
   only matters when the predictor type is `nn`).
-- **`compute_baseline()`** — runs every benchmark once with no overrides;
-  `asi=speedup=1.0` by definition (compared against itself).
-- **`compute_reference_asi()`** — evaluates the worst-case (every parameter
-  at its largest candidate value) configuration for each
-  `branch_predictor_type` and returns the minimum ASI across them, used as
-  every `hypervolume()` call's `ref_asi`. Only actually called, right after
-  the baseline on a fresh (non-resumed) search, when `--compute-ref-asi` is
-  passed; otherwise every strategy just uses `config.DEFAULT_REF_ASI`. See
-  [Hypervolume and its reference point](#hypervolume-and-its-reference-point)
-  for why, and what to do if you change `param_space.json`.
+- **`compute_baseline()`** — runs every benchmark once with every parameter
+  forced to its `DEFAULTS` value; `asi=speedup=1.0` by definition (compared
+  against itself).
 - **`evaluate_point()`** — the single function every strategy calls to turn a
   `params` dict into a `DesignPoint`: checks `global_cache` first
   (`params_key()`-keyed, shared by every strategy in a run — including
@@ -299,22 +236,24 @@ new one doesn't mean reimplementing any of this.
 - **Pareto dominance & hypervolume** — `dominates(a, b)` (maximizing both ASI
   and speedup, strictly better in at least one), `update_pareto_front(front,
   points)` (non-domination filter over `front + points`), and
-  `hypervolume(front, ref_asi, ref_speedup)` (2D area dominated by the front
-  relative to a reference point worse than every point on both axes — the
-  shared scale every strategy reports progress on and, for spea2/mesmo, the
-  signal their convergence checks watch. `ref_speedup` stays `0.0`;
-  `ref_asi` is `compute_reference_asi()`'s result, not the default `0.0` —
-  see [Hypervolume and its reference point](#hypervolume-and-its-reference-point)).
+  `hypervolume(front)` (2D area dominated by the front relative to the origin
+  `(ASI=0, speedup=0)` — the shared scale every strategy reports progress on
+  and, for spea2/mesmo, the signal their convergence checks watch). A point
+  with a negative ASI or speedup still belongs on the Pareto front (and is
+  still drawn on the plots, see [The ASI metric](#the-asi-metric)) — it just
+  contributes nothing to hypervolume on whichever axis it falls below the
+  origin, since `hypervolume()` clamps each axis's contribution to
+  `max(0.0, ...)`.
 - **Resumability** (`state.py`) — each strategy owns a small dataclass
   (`GreedySearchState`, `Spea2SearchState`, `MesmoSearchState`) serialized to
   `search_state.json` after every iteration/generation via
   `write_json_atomic()`. Besides its own search-specific fields, every one of
-  these dataclasses also carries `ref_asi` (so a resumed run doesn't
-  recompute it) and parallel `hv_history`/`sim_history` lists — one pair of
-  entries per iteration/generation, `hv_history[i]` the Pareto front's
-  hypervolume once `sim_history[i]` real simulations had been spent reaching
-  it — which is what `plot_hv_vs_simulations()` (`plot.py`) plots at the end
-  of every run into `hv_vs_sims.png`; see
+  these dataclasses also carries parallel `hv_history`/`sim_history`/
+  `pareto_size_history` lists — one triple of entries per iteration/
+  generation, `hv_history[i]`/`pareto_size_history[i]` the Pareto front's
+  hypervolume/point count once `sim_history[i]` real simulations had been
+  spent reaching it — which is what `plot_hv_vs_simulations()` (`plot.py`)
+  plots at the end of every run into `hv_vs_sims.png`; see
   [Hypervolume-vs-simulations plot](#hypervolume-vs-simulations-plot).
   `state.py` centralizes the parts that are identical across strategies:
   turning a `DesignPoint` to/from JSON (`point_to_dict`/`point_from_dict`),
@@ -327,13 +266,13 @@ new one doesn't mean reimplementing any of this.
 ## Hypervolume-vs-simulations plot
 
 Every strategy ends its run by writing `hv_vs_sims.png`
-(`plot_hv_vs_simulations()` in `plot.py`): the Pareto front's hypervolume
-(y-axis, using `ref_asi` above) against the cumulative number of *real*
-Sniper simulations spent to reach it (x-axis) — drawn as a step function,
-since hypervolume only actually changes at the recorded checkpoints, one per
-iteration/generation.
+(`plot_hv_vs_simulations()` in `plot.py`): two stacked subplots sharing one
+x-axis, the cumulative number of *real* Sniper simulations spent so far —
+the Pareto front's hypervolume on top and its point count (`len(pareto
+front)`) on the bottom — drawn as step functions, since both only actually
+change at the recorded checkpoints, one per iteration/generation.
 
-What that step function looks like differs *by design* across strategies,
+What those step functions look like differs *by design* across strategies,
 because "one iteration" costs a very different number of simulations in
 each:
 
@@ -456,8 +395,9 @@ variation doesn't reproduce them.
    generations.
 2. `compute_baseline()`.
 3. **Generation 0**: for each of `--populations` populations, seed
-   `population_size` entities — one is the baseline (`{}`, i.e. "reference
-   config as-is"), the rest are `_random_entity()` draws (one random value
+   `population_size` entities — one is the baseline (`DEFAULTS`, i.e. every
+   parameter at the reference config's own value), the rest are
+   `_random_entity()` draws (one random value
    per always-relevant parameter, plus the drawn `branch_predictor_type`'s
    own knobs). Evaluate every entity (`_evaluate_entity()` /
    `evaluate_point()`), then run `_environmental_selection()` per population
@@ -609,6 +549,89 @@ relative to a Sniper run).
       generation.
 5. Final cleanup; `pareto_history.png` / `pareto_final.png` written.
 
+## Strategy: `hybrid` (mesmo + spea2)
+
+**File:** `hybrid.py`, entry point `explore_pareto_front_hybrid()`. Not a new
+search algorithm in its own right — it runs `mesmo.py`'s and `spea2.py`'s
+*existing* entry points back to back, unmodified, in two phases against two
+sub-directories (`outputdir/mesmo_phase`, `outputdir/spea2_phase`). The only
+change made to either strategy for this was adding one new parameter to
+`explore_pareto_front_spea2()` (`seed_entities`, see below) — everything else
+`hybrid.py` does is call those two functions with the right arguments and
+hand phase 1's results to phase 2.
+
+**Theory.** MESMO's Bayesian-optimization surrogate is good at cheaply
+narrowing in on promising regions of `PARAM_SPACE` with relatively few real
+simulations, but it evaluates points one (or a small `--batch-size`) at a
+time, and its GP surrogate gets more expensive to refit as more real points
+accumulate — see [Hypervolume-vs-simulations
+plot](#hypervolume-vs-simulations-plot) for how that shows up in practice.
+SPEA2, by contrast, is good at *spreading out* an already-decent front once
+it has a population worth recombining and mutating, but starting cold from
+`spea2`'s usual fully-random generation 0 means it wastes early generations
+re-discovering points MESMO's surrogate could have found far more cheaply.
+`hybrid` tries to get the best of both: run MESMO first, for as long as it
+keeps actually improving the front, then hand its result to SPEA2 as a
+running start instead of a blank slate.
+
+**Execution order:**
+
+1. **Phase 1 — MESMO until plateau.** Calls
+   `mesmo.explore_pareto_front_mesmo()` completely unchanged, against
+   `outputdir/mesmo_phase`, for up to `--mesmo-phase-iterations` (default 30)
+   iterations, with `hv_patience` defaulted to **5** instead of mesmo's own
+   "unset" default (see [`hybrid` flags](#hybrid-flags)) — this is the
+   "plateau" the strategy is named for: as soon as 5 consecutive MESMO
+   iterations haven't meaningfully improved hypervolume
+   (`mesmo._has_converged()`, unchanged), MESMO stops, exactly as it would if
+   you'd passed `--strategy mesmo --mesmo-patience 5` yourself.
+2. **Handoff.** `mesmo.MesmoSearchState.load(mesmo_phase_dir)` reads back the
+   checkpoint MESMO just wrote (the same `search_state.json` it uses for its
+   own resumability — no new state format), giving `hybrid.py` MESMO's final
+   `global_cache` (every `params -> DesignPoint` it evaluated, including the
+   shared baseline) and its final `pareto_front`.
+3. **Phase 2 — SPEA2 seeded from MESMO's front.** Calls
+   `spea2.explore_pareto_front_spea2()` against `outputdir/spea2_phase`,
+   passing:
+   - `initial_cache=<MESMO's global_cache>` — the same mechanism
+     `screening.py` already uses to seed a fresh strategy's cache (see
+     [Shared building blocks](#shared-building-blocks)): SPEA2's own baseline
+     run, and any generation-0 entity that happens to coincide with
+     something MESMO already evaluated, is served from cache instead of
+     re-simulated.
+   - `seed_entities=<MESMO's final Pareto front's params>` — this is the
+     part that actually changes what SPEA2 evaluates, and the one small
+     addition made to `spea2.py` for this strategy: every population's
+     generation 0 is now `[baseline] + seed_entities`, padded with the usual
+     `_random_entity()` draws if that's shorter than `--population-size`
+     (truncated if longer), instead of `[baseline] +
+     (population_size - 1) random draws`. From generation 1 onward, SPEA2
+     proceeds completely unmodified — mating pool, crossover, mutation,
+     environmental selection all work on whatever population resulted from
+     that seeded generation 0, exactly as if a human had hand-picked
+     generation 0's starting entities.
+4. Returns SPEA2's final Pareto front — the same return type/shape every
+   other strategy returns, so `cli.py`'s final reporting/plotting needed no
+   changes to support `hybrid`.
+
+**Why two sub-directories, not one shared `outputdir`.** `MesmoSearchState`
+and `Spea2SearchState` (`state.py`) each stamp their own `strategy` name into
+`search_state.json` and refuse to resume a file written by the other one
+(`.load()` prints "starting fresh" instead — see
+[Resumability](#resumability)). If both phases wrote to the same directory,
+SPEA2's first checkpoint write in phase 2 would silently overwrite MESMO's
+saved state with its own. That would not affect a single uninterrupted run
+(the handoff in step 2 above happens *before* SPEA2's first write, so the
+values are already read out), but it would break resuming an *interrupted*
+hybrid run: restarting the same command would find no MESMO checkpoint left
+at all, and would have to redo every MESMO iteration — burning real Sniper
+simulations a second time — before even reaching SPEA2 again. Giving each
+phase its own sub-directory (`hybrid.py` creates both upfront, mirroring
+`cli.py`'s own `outputdir.mkdir()` before dispatching to any strategy) keeps
+each phase independently resumable, exactly as if you'd run `--strategy
+mesmo` and then `--strategy spea2` by hand against two different
+`--outputdir`s.
+
 ## Optional pre-processing: parameter screening
 
 **File:** `screening.py`, entry point `screen_param_space()`. Triggered by
@@ -699,3 +722,16 @@ following `GreedySearchState`/`Spea2SearchState`/`MesmoSearchState`'s pattern
 (a `STRATEGY` class var, `to_dict`/`from_dict`, a `.matches()` that at least
 checks `PARAM_SPACE` equality, and `.save()`/`.load()` built on `state.py`'s
 shared primitives), then register it in `STRATEGIES`.
+
+`hybrid.py` (see [Strategy: `hybrid`](#strategy-hybrid-mesmo--spea2)) is a
+different kind of example worth knowing about: a strategy doesn't have to
+write its own state dataclass at all if it's really just composing existing
+ones. It calls `mesmo.explore_pareto_front_mesmo()` and
+`spea2.explore_pareto_front_spea2()` as-is, each against its own
+sub-directory (so each keeps using its own `MesmoSearchState`/
+`Spea2SearchState` and stays independently resumable), and reads the first
+phase's result back via that phase's own `.load()` to feed the second. Worth
+following this pattern instead of a from-scratch state dataclass if a new
+strategy is fundamentally "run existing strategy A, then existing strategy
+B with A's result as a starting point" rather than a genuinely new search
+loop.

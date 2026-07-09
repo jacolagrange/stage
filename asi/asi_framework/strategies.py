@@ -10,7 +10,7 @@ its parameter names (see cli.py's use of inspect.signature).
 from dataclasses import dataclass
 from typing import Callable
 
-from . import greedy, spea2, mesmo
+from . import greedy, spea2, mesmo, hybrid
 
 
 @dataclass(frozen=True)
@@ -31,5 +31,9 @@ STRATEGIES: dict[str, StrategySpec] = {
     "mesmo": StrategySpec(
         name="mesmo",
         run=mesmo.explore_pareto_front_mesmo,
+    ),
+    "hybrid": StrategySpec(
+        name="hybrid",
+        run=hybrid.explore_pareto_front_hybrid,
     ),
 }
