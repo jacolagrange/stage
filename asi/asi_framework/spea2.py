@@ -23,12 +23,12 @@ from typing import Any, ClassVar
 
 from .models import DesignPoint
 from .config import (
-    PARAM_SPACE, DEFAULT_ALPHA, DEFAULT_REF_ASI, DEFAULTS, DEFAULT_BRANCH_PREDICTOR_TYPE,
+    PARAM_SPACE, DEFAULT_ALPHA, DEFAULTS, DEFAULT_BRANCH_PREDICTOR_TYPE,
     BRANCH_PREDICTOR_PARAMS, CONDITIONAL_PARAMS, active_params,
 )
 from .greedy import (
     evaluate_point, dominates, update_pareto_front, print_pareto_table,
-    print_evaluated_point, params_key, compute_baseline, compute_reference_asi, hypervolume,
+    print_evaluated_point, params_key, compute_baseline, hypervolume,
 )
 from .plot import plot_pareto_front_on_asi, plot_pareto_fronts_on_asi, plot_hv_vs_simulations
 from .state import (
@@ -250,10 +250,11 @@ class Spea2SearchState:
     pareto_front_history: list[list[DesignPoint]]
     hv_history: list[float]
     sim_history: list[int]
+    pareto_size_history: list[int]
     rng_state: list
     sniper_runs: int
+    sniper_invocations: int
     param_space: dict[str, list]
-    ref_asi: float
 
     def matches(self, reference_config: str, benchmarks: dict[str, list[str]], alpha: float) -> bool:
         """Also checked against the live PARAM_SPACE: only generation 0 samples
@@ -285,10 +286,11 @@ class Spea2SearchState:
             "pareto_front_history": [[point_to_dict(p) for p in front] for front in self.pareto_front_history],
             "hv_history": self.hv_history,
             "sim_history": self.sim_history,
+            "pareto_size_history": self.pareto_size_history,
             "rng_state": self.rng_state,
             "sniper_runs": self.sniper_runs,
+            "sniper_invocations": self.sniper_invocations,
             "param_space": self.param_space,
-            "ref_asi": self.ref_asi,
         }
 
     @classmethod
@@ -308,10 +310,11 @@ class Spea2SearchState:
             ],
             hv_history=d["hv_history"],
             sim_history=d.get("sim_history", []),
+            pareto_size_history=d.get("pareto_size_history", []),
             rng_state=d["rng_state"],
             sniper_runs=d.get("sniper_runs", 0),
+            sniper_invocations=d.get("sniper_invocations", 0),
             param_space=d.get("param_space", {}),
-            ref_asi=d.get("ref_asi", 0.0),
         )
 
     def save(self, outputdir: Path) -> None:
@@ -337,11 +340,11 @@ class Spea2SearchState:
 def _evaluate_entity(
     params: dict[str, Any], out: Path, reference_config: str, sniper: Path, benchmarks: dict[str, list[str]],
     baseline: DesignPoint, alpha: float, global_cache: dict[frozenset, DesignPoint], prefix: str,
-) -> tuple[DesignPoint | None, bool]:
-    point, ran = evaluate_point(params, _modified_params(params), out, reference_config, sniper, benchmarks, baseline, alpha, global_cache)
+) -> tuple[DesignPoint | None, bool, int]:
+    point, ran, invocations = evaluate_point(params, _modified_params(params), out, reference_config, sniper, benchmarks, baseline, alpha, global_cache)
     if point is not None:
         print_evaluated_point(params, point, prefix=prefix)
-    return point, ran
+    return point, ran, invocations
 
 
 def _live_output_dirs(state: "Spea2SearchState", baseline_dir: Path) -> set[Path]:
@@ -369,8 +372,8 @@ def explore_pareto_front_spea2(
     p_migration: float = 0.10,
     patience: int = 5,
     seed: int = 0,
-    compute_ref_asi: bool = False,
     initial_cache: dict[frozenset, DesignPoint] | None = None,
+    seed_entities: list[dict[str, Any]] | None = None,
 ) -> list[DesignPoint]:
     """
     COLE-style multi-objective evolutionary (SPEA2) exploration of the ASI
@@ -407,11 +410,23 @@ def explore_pareto_front_spea2(
     already-evaluated points it found are reused instead of re-run. Ignored
     when resuming a saved search, which already has its own global_cache.
 
-    compute_ref_asi controls how the hypervolume reference point (ref_asi)
-    is obtained on a fresh start: False (default) uses config.DEFAULT_REF_ASI,
-    a precomputed constant valid only for the shipped param_space.json at
-    DEFAULT_ALPHA; True recomputes it for real (up to 4 extra Sniper
-    simulations) against whatever PARAM_SPACE/alpha this run is using.
+    seed_entities replaces generation 0's usual random population with a
+    caller-supplied list of already-known-good configurations -- e.g.
+    hybrid.py hands in another strategy's final Pareto front here, so SPEA2
+    starts refining an already-decent front via crossover/mutation instead of
+    spending early generations rediscovering it from scratch. Every
+    population is seeded with the exact same baseline-then-seed_entities
+    prefix -- no random padding and no truncation to population_size, unlike
+    a plain random start. As long as every seed_entities point was already
+    evaluated by whatever produced it (true of hybrid.py, which also passes
+    initial_cache=<that search's own global_cache>), this makes generation 0
+    cost zero new sniper runs: every seed entity is a global_cache hit.
+    Reproduction from generation 1 onward already builds population_size
+    children purely from the archive regardless of how large the previous
+    generation's population was (see the main loop below), so the
+    population naturally regrows to its usual size on its own -- generation
+    0 doesn't need to pre-pad it. Ignored when resuming a saved search, same
+    as initial_cache.
     """
     loaded = Spea2SearchState.load(outputdir)
     resumable = loaded is not None and loaded.matches(reference_config, benchmarks, alpha)
@@ -427,7 +442,7 @@ def explore_pareto_front_spea2(
               f"(found {state_path(outputdir)})\n")
     else:
         global_cache: dict[frozenset, DesignPoint] = dict(initial_cache) if initial_cache else {}
-        baseline_key = params_key({})
+        baseline_key = params_key(DEFAULTS)
         if baseline_key in global_cache:
             baseline = global_cache[baseline_key]
             print(f"Using baseline from pre-evaluation screening cache ({len(global_cache)} cached point"
@@ -442,34 +457,39 @@ def explore_pareto_front_spea2(
             print(f"    {name}: Time={d['time']:.0f} ns")
         print()
 
-        if compute_ref_asi:
-            print("Computing hypervolume reference point (worst-case ASI per branch predictor)...")
-            ref_asi = compute_reference_asi(
-                reference_config, sniper, outputdir, benchmarks, baseline, alpha, global_cache, PARAM_SPACE,
-            )
-            print(f"  ref_asi = {ref_asi:.4f}\n")
-        else:
-            ref_asi = DEFAULT_REF_ASI
-            print(f"Using precomputed hypervolume reference point ref_asi={ref_asi:.4f} "
-                  f"(pass --compute-ref-asi to recompute it for this PARAM_SPACE/alpha).\n")
-
         rng = random.Random(seed)
 
-        print(f"=== Generation 0 (initializing {num_populations} populations "
-              f"of {population_size} entities) ===")
+        seed_prefix = [dict(DEFAULTS)] + [dict(p) for p in (seed_entities or [])]
+        if seed_entities:
+            print(f"=== Generation 0 (initializing {num_populations} populations "
+                  f"from {len(seed_prefix)} seed entities, no random fill) ===")
+        else:
+            print(f"=== Generation 0 (initializing {num_populations} populations "
+                  f"of {population_size} entities) ===")
         populations: list[list[DesignPoint]] = []
         runs_this_gen = 0
+        invocations_this_gen = 0
         for pop_idx in range(num_populations):
-            entity_params = [{}] + [_random_entity(rng) for _ in range(population_size - 1)]
+            if seed_entities:
+                # No random padding/truncation here (unlike the plain-random-start
+                # branch below): every seed_entities point is guaranteed to already
+                # be in global_cache (see this function's seed_entities docstring),
+                # so this keeps generation 0 at zero new sniper runs. Reproduction
+                # from generation 1 onward regrows the population to population_size
+                # on its own regardless of this starting size.
+                entity_params = seed_prefix
+            else:
+                fill = [_random_entity(rng) for _ in range(max(0, population_size - len(seed_prefix)))]
+                entity_params = (seed_prefix + fill)[:population_size]
             pop_points = []
             for ent_idx, params in enumerate(entity_params):
                 out = outputdir / f"gen0_pop{pop_idx}_ent{ent_idx}"
-                point, ran = _evaluate_entity(
+                point, ran, invocations = _evaluate_entity(
                     params, out, reference_config, sniper, benchmarks, baseline, alpha, global_cache,
                     prefix=f"[pop{pop_idx}] ",
                 )
-                if ran:
-                    runs_this_gen += 1
+                runs_this_gen += ran
+                invocations_this_gen += invocations
                 if point is not None:
                     pop_points.append(point)
             populations.append(pop_points)
@@ -479,15 +499,17 @@ def explore_pareto_front_spea2(
             for pop in populations
         ]
         pareto_front = update_pareto_front([], [p for arc in archives for p in arc])
-        hv_history = [hypervolume([baseline], ref_asi=ref_asi), hypervolume(pareto_front, ref_asi=ref_asi)]
+        hv_history = [hypervolume([baseline]), hypervolume(pareto_front)]
         sim_history = [0, runs_this_gen]
+        pareto_size_history = [1, len(pareto_front)]
 
         state = Spea2SearchState(
             reference_config=str(reference_config), benchmarks=benchmarks, alpha=alpha, generation=0,
             baseline=baseline, global_cache=global_cache, populations=populations,
             archives=archives, pareto_front=pareto_front, pareto_front_history=[list(pareto_front)],
-            hv_history=hv_history, sim_history=sim_history, rng_state=rng_state_to_json(rng),
-            sniper_runs=runs_this_gen, param_space=PARAM_SPACE, ref_asi=ref_asi,
+            hv_history=hv_history, sim_history=sim_history, pareto_size_history=pareto_size_history,
+            rng_state=rng_state_to_json(rng), sniper_runs=runs_this_gen,
+            sniper_invocations=invocations_this_gen, param_space=PARAM_SPACE,
         )
         state.save(outputdir)
         print(f"\n  Combined Pareto front after generation 0 "
@@ -516,22 +538,24 @@ def explore_pareto_front_spea2(
 
         evaluated_populations: list[list[DesignPoint]] = []
         runs_this_gen = 0
+        invocations_this_gen = 0
         for pop_idx, entity_params in enumerate(next_populations):
             print(f"  Evaluating population {pop_idx} ({len(entity_params)} entities)...")
             pop_points = []
             for ent_idx, params in enumerate(entity_params):
                 out = outputdir / f"gen{generation}_pop{pop_idx}_ent{ent_idx}"
-                point, ran = _evaluate_entity(
+                point, ran, invocations = _evaluate_entity(
                     params, out, reference_config, sniper, state.benchmarks, state.baseline, alpha, state.global_cache,
                     prefix=f"[pop{pop_idx}] ",
                 )
-                if ran:
-                    runs_this_gen += 1
+                runs_this_gen += ran
+                invocations_this_gen += invocations
                 if point is not None:
                     pop_points.append(point)
             evaluated_populations.append(pop_points)
         state.populations = evaluated_populations
         state.sniper_runs += runs_this_gen
+        state.sniper_invocations += invocations_this_gen
 
         state.archives = [
             _environmental_selection(state.populations[i], state.archives[i], archive_size)
@@ -540,9 +564,10 @@ def explore_pareto_front_spea2(
 
         state.pareto_front = update_pareto_front([], [p for arc in state.archives for p in arc])
         state.pareto_front_history.append(list(state.pareto_front))
-        hv = hypervolume(state.pareto_front, ref_asi=state.ref_asi)
+        hv = hypervolume(state.pareto_front)
         state.hv_history.append(hv)
         state.sim_history.append(state.sniper_runs)
+        state.pareto_size_history.append(len(state.pareto_front))
 
         live_dirs = _live_output_dirs(state, baseline_dir)
         all_cached_dirs = {p.output_path for p in state.global_cache.values() if p.output_path}
@@ -571,9 +596,9 @@ def explore_pareto_front_spea2(
     if n:
         print(f"Final cleanup: removed {n} stale output director{'y' if n == 1 else 'ies'}.")
 
-    print(f"Total sniper runs: {state.sniper_runs}")
-    print(f"Final hypervolume: {hypervolume(state.pareto_front, ref_asi=state.ref_asi):.4f} "
-          f"(ref_asi={state.ref_asi:.4f})\n")
+    print(f"Configurations evaluated: {state.sniper_runs}")
+    print(f"Total sniper invocations: {state.sniper_invocations}")
+    print(f"Final hypervolume: {hypervolume(state.pareto_front):.4f}\n")
 
     plot_pareto_fronts_on_asi(
         state.pareto_front_history, title="ASI Pareto Fronts by Generation",
@@ -584,7 +609,8 @@ def explore_pareto_front_spea2(
         save_path=outputdir / "pareto_final.png", show=False,
     )
     plot_hv_vs_simulations(
-        state.sim_history, state.hv_history, title="Hypervolume vs. Simulations (spea2)",
+        state.sim_history, state.hv_history, state.pareto_size_history,
+        title="Hypervolume & Pareto Front Size vs. Simulations (spea2)",
         save_path=outputdir / "hv_vs_sims.png", show=False,
     )
 

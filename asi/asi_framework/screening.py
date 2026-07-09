@@ -28,14 +28,21 @@ Two screening methods are available (--preeval-method):
     normal range" guidance -- and varied according to a Plackett-Burman
     design with foldover, deliberately oversized (see _next_pb_size) to leave
     a couple of spare "dummy" columns tied to no real parameter. A
-    parameter's effect is the sum, over every run, of its assigned +-1 level
-    times that run's distance-from-baseline target; a dummy column's effect
-    is computed the same way despite representing nothing, so its magnitude
-    is pure noise. Following the paper's own Table 6 (whose "Dummy Parameter"
-    rows are the yardstick for which real parameters' ranks are actually
-    trustworthy), a real parameter is pruned unless its |effect| exceeds the
-    largest |dummy effect| -- not an arbitrary fraction of the largest real
-    effect.
+    parameter's effect is computed *separately per objective* (ASI, speedup)
+    as the sum, over every run, of its assigned +-1 level times that run's
+    *signed* deviation from baseline on that objective; a dummy column's
+    effect is computed the same way despite representing nothing, so its
+    magnitude is pure per-objective noise. Effects are kept per-objective
+    (not combined into one non-negative Euclidean distance) because
+    combining them discards direction and lets a single dominant/saturating
+    parameter (e.g. a crippling rob_window_size=16) swamp every column's
+    effect sum at once -- both real and dummy alike -- which in practice
+    produced an unstable all-kept-or-all-pruned split instead of a real
+    ranking. Following the paper's own Table 6 (whose "Dummy Parameter" rows
+    are the yardstick for which real parameters' ranks are actually
+    trustworthy), a real parameter is kept if either objective's |effect|
+    exceeds that objective's own largest |dummy effect| -- not an arbitrary
+    fraction of the largest real effect.
 
     branch_predictor_type itself, and its own predictor-specific knobs (see
     BRANCH_PREDICTOR_PARAMS), are excluded from that design entirely -- a
@@ -272,7 +279,7 @@ def screen_param_space(
     baseline_dir = outputdir / "preeval" / "baseline"
     baseline = compute_baseline(reference_config, sniper, baseline_dir, benchmarks)
 
-    global_cache = {params_key({}): baseline}
+    global_cache = {params_key(DEFAULTS): baseline}
     # baseline_dir is deliberately left out of sample_dirs: the baseline is
     # the one point a resumed strategy is guaranteed to look up in
     # global_cache (every strategy evaluates it first), so its output is kept
@@ -280,30 +287,37 @@ def screen_param_space(
     sample_dirs: set[Path] = set()
     rows: list[dict[str, float]] = []
     targets: list[float] = []
-    pb_effects: dict[str, float] = {param: 0.0 for param in pb_levels}
-    pb_dummy_effects: list[float] = [0.0] * n_dummy_columns
+    pb_effects_asi: dict[str, float] = {param: 0.0 for param in pb_levels}
+    pb_effects_speedup: dict[str, float] = {param: 0.0 for param in pb_levels}
+    pb_dummy_effects_asi: list[float] = [0.0] * n_dummy_columns
+    pb_dummy_effects_speedup: list[float] = [0.0] * n_dummy_columns
     pb_successes = 0
 
     for i, params in enumerate(entities):
         modified = {p for p, v in params.items() if v != DEFAULTS[p]}
         out = outputdir / "preeval" / f"sample{i}"
         sample_dirs.add(out)
-        point, _ = evaluate_point(
+        point, _, _ = evaluate_point(
             params, modified, out, reference_config, sniper, benchmarks, baseline, alpha, global_cache,
         )
         if point is None:
             continue
         print_evaluated_point(params, point, prefix="[preeval] ")
-        target = ((point.asi - 1.0) ** 2 + (point.speedup - 1.0) ** 2) ** 0.5
         if method == "plackett_burman":
             pb_successes += 1
+            asi_dev = point.asi - 1.0
+            speedup_dev = point.speedup - 1.0
             for param, value in params.items():
                 low, _high = pb_levels[param]
-                pb_effects[param] += (-1.0 if value == low else 1.0) * target
+                sign = -1.0 if value == low else 1.0
+                pb_effects_asi[param] += sign * asi_dev
+                pb_effects_speedup[param] += sign * speedup_dev
             row = pb_design[i]
             for d in range(n_dummy_columns):
-                pb_dummy_effects[d] += row[n_real_columns + d] * target
+                pb_dummy_effects_asi[d] += row[n_real_columns + d] * asi_dev
+                pb_dummy_effects_speedup[d] += row[n_real_columns + d] * speedup_dev
         else:
+            target = ((point.asi - 1.0) ** 2 + (point.speedup - 1.0) ** 2) ** 0.5
             rows.append(_encode_features(params, PARAM_SPACE))
             targets.append(target)
 
@@ -313,7 +327,8 @@ def screen_param_space(
 
     if method == "plackett_burman":
         return _screen_plackett_burman(
-            PARAM_SPACE, pb_levels, pb_effects, pb_dummy_effects, pb_successes, global_cache,
+            PARAM_SPACE, pb_levels, pb_effects_asi, pb_effects_speedup,
+            pb_dummy_effects_asi, pb_dummy_effects_speedup, pb_successes, global_cache,
         )
 
     if len(rows) < 2:
@@ -344,19 +359,28 @@ def screen_param_space(
 def _screen_plackett_burman(
     param_space: dict[str, list],
     pb_levels: dict[str, tuple[Any, Any]],
-    pb_effects: dict[str, float],
-    pb_dummy_effects: list[float],
+    pb_effects_asi: dict[str, float],
+    pb_effects_speedup: dict[str, float],
+    pb_dummy_effects_asi: list[float],
+    pb_dummy_effects_speedup: list[float],
     pb_successes: int,
     global_cache: dict[frozenset, DesignPoint],
 ) -> tuple[dict[str, list], dict[frozenset, DesignPoint]]:
     """Applies Yi, Lilja & Hawkins' actual significance rule (Section 2,
     Table 6) to the Plackett-Burman screen run by screen_param_space(method=
     "plackett_burman"): a parameter is judged against the noise ceiling set
-    by the design's own dummy columns -- pb_dummy_effects are computed
-    exactly like a real parameter's effect (sum of +-1 times each run's
-    distance-from-baseline target) but are tied to no real factor, so their
-    magnitude *is* what pure noise looks like at this sample size. A
-    parameter is only kept if its |effect| beats the largest dummy effect.
+    by the design's own dummy columns -- pb_dummy_effects_{asi,speedup} are
+    computed exactly like a real parameter's effect (sum of +-1 times each
+    run's *signed* deviation from baseline, per objective) but are tied to no
+    real factor, so their magnitude *is* what pure noise looks like at this
+    sample size, separately for each objective. A parameter is kept if
+    *either* objective's |effect| beats that objective's own largest dummy
+    effect -- a parameter that only moves ASI (or only speedup) still matters
+    to the Pareto front, and judging both objectives through one combined
+    unsigned distance let a single saturating parameter (e.g. rob_window_size
+    at its crippling low extreme) dominate every column's effect at once,
+    producing an unstable all-kept-or-all-pruned split instead of a real
+    ranking.
 
     branch_predictor_type and its own predictor-specific knobs are never
     part of this design (see module docstring) -- they're always pruned to
@@ -367,14 +391,23 @@ def _screen_plackett_burman(
     if pb_successes < 2:
         print("  Not enough successful Plackett-Burman runs -- keeping those parameters.\n")
     else:
-        noise_ceiling = max((abs(e) for e in pb_dummy_effects), default=0.0)
-        print(f"\n  Parameter importance (PB |effect|, dummy-column noise ceiling={noise_ceiling:.4f}):")
-        order = sorted(pb_levels, key=lambda p: -abs(pb_effects[p]))
+        ceiling_asi = max((abs(e) for e in pb_dummy_effects_asi), default=0.0)
+        ceiling_speedup = max((abs(e) for e in pb_dummy_effects_speedup), default=0.0)
+        print(f"\n  Parameter importance (PB |effect| on asi / speedup, "
+              f"dummy-column noise ceilings={ceiling_asi:.4f} / {ceiling_speedup:.4f}):")
+        order = sorted(
+            pb_levels,
+            key=lambda p: -max(
+                abs(pb_effects_asi[p]) / ceiling_asi if ceiling_asi else float(pb_effects_asi[p] != 0),
+                abs(pb_effects_speedup[p]) / ceiling_speedup if ceiling_speedup else float(pb_effects_speedup[p] != 0),
+            ),
+        )
         for param in order:
-            imp = abs(pb_effects[param])
-            keep = imp > noise_ceiling
+            imp_asi = abs(pb_effects_asi[param])
+            imp_speedup = abs(pb_effects_speedup[param])
+            keep = imp_asi > ceiling_asi or imp_speedup > ceiling_speedup
             pruned[param] = param_space[param] if keep else [param_space[param][0]]
-            print(f"    {param:<28} {imp:>10.4f}  [{'kept' if keep else 'pruned'}]")
+            print(f"    {param:<28} asi={imp_asi:>9.4f} speedup={imp_speedup:>9.4f}  [{'kept' if keep else 'pruned'}]")
         print()
 
     for param in branch_predictor_params:

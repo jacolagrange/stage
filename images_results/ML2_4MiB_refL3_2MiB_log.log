@@ -1,0 +1,443 @@
+Logging to /home/jaco/school/stage/asi/asi-output/run.log
+
+Benchmarks: ML2 (./libs/benchmarks/ML2/bench)
+
+Resuming MESMO search from iteration 20 (found /home/jaco/school/stage/asi/asi-output/search_state.json)
+
+=== Iteration 21 ===
+  Evaluating 1 configuration(s) (top acquisition score of 400 candidates)...
+  [mesmo] bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64  ASI= 1.5352  S=0.9934  A=  44.56  P= 14.18  [Strongly Sust.]
+
+  Pareto front after iteration 21 (11 points, HV=1.6985):
+  Params                                  ASI  Speedup     Area  PeakPow  Region
+  ──────────────────────────────────────────────────────────────────────────────
+  bpt=nn l1da=8 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=8 l3=8192 nnbl=16 nnlr=0.005 robc=10 robd=8 robw=16  -0.0957   1.5061   108.88    43.97  Unsustainable
+  bp=1024 bpt=a53 l1da=8 l1d=16 l1ia=8 l1i=16 l2a=8 l2=512 l3a=16 l3=4096 nhist=3 robc=10 robd=8 robw=256  -0.0004   1.5059    99.05   534.82  Unsustainable
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 robc=2 robd=2 robw=1024   0.0832   1.4885    90.59    38.22  Unsustainable
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 robc=2 robd=2 robw=256   0.2457   1.4884    86.13    20.26  Unsustainable
+  bpt=nn l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 nnbl=16 nnlr=0.005 robc=2 robd=2 robw=256   0.2457   1.4883    86.13    20.26  Unsustainable
+  baseline                             1.0000   1.0000    49.23    19.88  Reference
+  bpt=nn l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=64 nnlr=0.001 robc=4 robd=2 robw=64   1.5155   0.9962    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=4 robc=4 robd=2 robw=64   1.5156   0.9961    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=3 robc=4 robd=2 robw=64   1.5297   0.9960    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5297   0.9958    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5352   0.9934    44.56    14.18  Strongly Sust.
+  Ran sniper 1 time this iteration (27 total).
+
+=== Iteration 22 ===
+  Evaluating 1 configuration(s) (top acquisition score of 400 candidates)...
+  [mesmo] bpt=tage l1da=4 l1d=16 l1ia=4 l1i=32 l2a=4 l2=512 l3a=8 l3=8192 robc=10 robd=4 robw=256  ASI= 0.0018  S=1.5058  A=  98.20  P= 59.17  [Unsustainable]
+
+  Pareto front after iteration 22 (12 points, HV=1.6986):
+  Params                                  ASI  Speedup     Area  PeakPow  Region
+  ──────────────────────────────────────────────────────────────────────────────
+  bpt=nn l1da=8 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=8 l3=8192 nnbl=16 nnlr=0.005 robc=10 robd=8 robw=16  -0.0957   1.5061   108.88    43.97  Unsustainable
+  bp=1024 bpt=a53 l1da=8 l1d=16 l1ia=8 l1i=16 l2a=8 l2=512 l3a=16 l3=4096 nhist=3 robc=10 robd=8 robw=256  -0.0004   1.5059    99.05   534.82  Unsustainable
+  bpt=tage l1da=4 l1d=16 l1ia=4 l1i=32 l2a=4 l2=512 l3a=8 l3=8192 robc=10 robd=4 robw=256   0.0018   1.5058    98.20    59.17  Unsustainable
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 robc=2 robd=2 robw=1024   0.0832   1.4885    90.59    38.22  Unsustainable
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 robc=2 robd=2 robw=256   0.2457   1.4884    86.13    20.26  Unsustainable
+  bpt=nn l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 nnbl=16 nnlr=0.005 robc=2 robd=2 robw=256   0.2457   1.4883    86.13    20.26  Unsustainable
+  baseline                             1.0000   1.0000    49.23    19.88  Reference
+  bpt=nn l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=64 nnlr=0.001 robc=4 robd=2 robw=64   1.5155   0.9962    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=4 robc=4 robd=2 robw=64   1.5156   0.9961    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=3 robc=4 robd=2 robw=64   1.5297   0.9960    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5297   0.9958    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5352   0.9934    44.56    14.18  Strongly Sust.
+  Ran sniper 1 time this iteration (28 total).
+
+=== Iteration 23 ===
+  Evaluating 1 configuration(s) (top acquisition score of 400 candidates)...
+  [mesmo] bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=64 l2a=8 l2=512 l3a=8 l3=8192 robc=2 robd=8 robw=128  ASI=-0.0251  S=1.5059  A= 114.66  P=260.68  [Unsustainable]
+
+  Pareto front after iteration 23 (13 points, HV=1.6986):
+  Params                                  ASI  Speedup     Area  PeakPow  Region
+  ──────────────────────────────────────────────────────────────────────────────
+  bpt=nn l1da=8 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=8 l3=8192 nnbl=16 nnlr=0.005 robc=10 robd=8 robw=16  -0.0957   1.5061   108.88    43.97  Unsustainable
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=64 l2a=8 l2=512 l3a=8 l3=8192 robc=2 robd=8 robw=128  -0.0251   1.5059   114.66   260.68  Unsustainable
+  bp=1024 bpt=a53 l1da=8 l1d=16 l1ia=8 l1i=16 l2a=8 l2=512 l3a=16 l3=4096 nhist=3 robc=10 robd=8 robw=256  -0.0004   1.5059    99.05   534.82  Unsustainable
+  bpt=tage l1da=4 l1d=16 l1ia=4 l1i=32 l2a=4 l2=512 l3a=8 l3=8192 robc=10 robd=4 robw=256   0.0018   1.5058    98.20    59.17  Unsustainable
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 robc=2 robd=2 robw=1024   0.0832   1.4885    90.59    38.22  Unsustainable
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 robc=2 robd=2 robw=256   0.2457   1.4884    86.13    20.26  Unsustainable
+  bpt=nn l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 nnbl=16 nnlr=0.005 robc=2 robd=2 robw=256   0.2457   1.4883    86.13    20.26  Unsustainable
+  baseline                             1.0000   1.0000    49.23    19.88  Reference
+  bpt=nn l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=64 nnlr=0.001 robc=4 robd=2 robw=64   1.5155   0.9962    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=4 robc=4 robd=2 robw=64   1.5156   0.9961    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=3 robc=4 robd=2 robw=64   1.5297   0.9960    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5297   0.9958    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5352   0.9934    44.56    14.18  Strongly Sust.
+  Ran sniper 1 time this iteration (29 total).
+
+=== Iteration 24 ===
+  Evaluating 1 configuration(s) (top acquisition score of 400 candidates)...
+  [mesmo] bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=8 robd=2 robw=64  ASI= 1.5350  S=0.9948  A=  44.56  P= 14.18  [Strongly Sust.]
+
+  Pareto front after iteration 24 (14 points, HV=1.6986):
+  Params                                  ASI  Speedup     Area  PeakPow  Region
+  ──────────────────────────────────────────────────────────────────────────────
+  bpt=nn l1da=8 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=8 l3=8192 nnbl=16 nnlr=0.005 robc=10 robd=8 robw=16  -0.0957   1.5061   108.88    43.97  Unsustainable
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=64 l2a=8 l2=512 l3a=8 l3=8192 robc=2 robd=8 robw=128  -0.0251   1.5059   114.66   260.68  Unsustainable
+  bp=1024 bpt=a53 l1da=8 l1d=16 l1ia=8 l1i=16 l2a=8 l2=512 l3a=16 l3=4096 nhist=3 robc=10 robd=8 robw=256  -0.0004   1.5059    99.05   534.82  Unsustainable
+  bpt=tage l1da=4 l1d=16 l1ia=4 l1i=32 l2a=4 l2=512 l3a=8 l3=8192 robc=10 robd=4 robw=256   0.0018   1.5058    98.20    59.17  Unsustainable
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 robc=2 robd=2 robw=1024   0.0832   1.4885    90.59    38.22  Unsustainable
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 robc=2 robd=2 robw=256   0.2457   1.4884    86.13    20.26  Unsustainable
+  bpt=nn l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 nnbl=16 nnlr=0.005 robc=2 robd=2 robw=256   0.2457   1.4883    86.13    20.26  Unsustainable
+  baseline                             1.0000   1.0000    49.23    19.88  Reference
+  bpt=nn l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=64 nnlr=0.001 robc=4 robd=2 robw=64   1.5155   0.9962    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=4 robc=4 robd=2 robw=64   1.5156   0.9961    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=3 robc=4 robd=2 robw=64   1.5297   0.9960    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5297   0.9958    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=8 robd=2 robw=64   1.5350   0.9948    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5352   0.9934    44.56    14.18  Strongly Sust.
+  Ran sniper 1 time this iteration (30 total).
+
+=== Iteration 25 ===
+  Evaluating 1 configuration(s) (top acquisition score of 400 candidates)...
+  [mesmo] bp=1024 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=32 l2a=8 l2=512 l3a=8 l3=4096 nhist=2 robc=10 robd=8 robw=64  ASI= 0.2268  S=1.5059  A=  73.96  P= 43.61  [Unsustainable]
+  Deleted 4 non-Pareto output directories.
+
+  Pareto front after iteration 25 (11 points, HV=1.7025):
+  Params                                  ASI  Speedup     Area  PeakPow  Region
+  ──────────────────────────────────────────────────────────────────────────────
+  bpt=nn l1da=8 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=8 l3=8192 nnbl=16 nnlr=0.005 robc=10 robd=8 robw=16  -0.0957   1.5061   108.88    43.97  Unsustainable
+  bp=1024 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=32 l2a=8 l2=512 l3a=8 l3=4096 nhist=2 robc=10 robd=8 robw=64   0.2268   1.5059    73.96    43.61  Unsustainable
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 robc=2 robd=2 robw=256   0.2457   1.4884    86.13    20.26  Unsustainable
+  bpt=nn l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 nnbl=16 nnlr=0.005 robc=2 robd=2 robw=256   0.2457   1.4883    86.13    20.26  Unsustainable
+  baseline                             1.0000   1.0000    49.23    19.88  Reference
+  bpt=nn l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=64 nnlr=0.001 robc=4 robd=2 robw=64   1.5155   0.9962    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=4 robc=4 robd=2 robw=64   1.5156   0.9961    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=3 robc=4 robd=2 robw=64   1.5297   0.9960    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5297   0.9958    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=8 robd=2 robw=64   1.5350   0.9948    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5352   0.9934    44.56    14.18  Strongly Sust.
+  Ran sniper 1 time this iteration (31 total).
+
+=== Iteration 26 ===
+  Evaluating 1 configuration(s) (top acquisition score of 400 candidates)...
+  [mesmo] bp=2048 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=64 l2a=8 l2=256 l3a=16 l3=8192 nhist=2 robc=2 robd=2 robw=512  ASI= 0.1192  S=1.4884  A=  90.07  P= 28.40  [Unsustainable]
+  Deleted 1 non-Pareto output directory.
+
+  Pareto front after iteration 26 (11 points, HV=1.7025):
+  Params                                  ASI  Speedup     Area  PeakPow  Region
+  ──────────────────────────────────────────────────────────────────────────────
+  bpt=nn l1da=8 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=8 l3=8192 nnbl=16 nnlr=0.005 robc=10 robd=8 robw=16  -0.0957   1.5061   108.88    43.97  Unsustainable
+  bp=1024 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=32 l2a=8 l2=512 l3a=8 l3=4096 nhist=2 robc=10 robd=8 robw=64   0.2268   1.5059    73.96    43.61  Unsustainable
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 robc=2 robd=2 robw=256   0.2457   1.4884    86.13    20.26  Unsustainable
+  bpt=nn l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 nnbl=16 nnlr=0.005 robc=2 robd=2 robw=256   0.2457   1.4883    86.13    20.26  Unsustainable
+  baseline                             1.0000   1.0000    49.23    19.88  Reference
+  bpt=nn l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=64 nnlr=0.001 robc=4 robd=2 robw=64   1.5155   0.9962    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=4 robc=4 robd=2 robw=64   1.5156   0.9961    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=3 robc=4 robd=2 robw=64   1.5297   0.9960    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5297   0.9958    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=8 robd=2 robw=64   1.5350   0.9948    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5352   0.9934    44.56    14.18  Strongly Sust.
+  Ran sniper 1 time this iteration (32 total).
+
+=== Iteration 27 ===
+  Evaluating 1 configuration(s) (top acquisition score of 400 candidates)...
+  [mesmo] bp=2048 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=16 l2a=4 l2=512 l3a=4 l3=8192 nhist=2 robc=10 robd=10 robw=512  ASI=-0.0232  S=1.5059  A= 181.04  P=1437.34  [Unsustainable]
+  Deleted 1 non-Pareto output directory.
+
+  Pareto front after iteration 27 (11 points, HV=1.7025):
+  Params                                  ASI  Speedup     Area  PeakPow  Region
+  ──────────────────────────────────────────────────────────────────────────────
+  bpt=nn l1da=8 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=8 l3=8192 nnbl=16 nnlr=0.005 robc=10 robd=8 robw=16  -0.0957   1.5061   108.88    43.97  Unsustainable
+  bp=1024 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=32 l2a=8 l2=512 l3a=8 l3=4096 nhist=2 robc=10 robd=8 robw=64   0.2268   1.5059    73.96    43.61  Unsustainable
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 robc=2 robd=2 robw=256   0.2457   1.4884    86.13    20.26  Unsustainable
+  bpt=nn l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 nnbl=16 nnlr=0.005 robc=2 robd=2 robw=256   0.2457   1.4883    86.13    20.26  Unsustainable
+  baseline                             1.0000   1.0000    49.23    19.88  Reference
+  bpt=nn l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=64 nnlr=0.001 robc=4 robd=2 robw=64   1.5155   0.9962    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=4 robc=4 robd=2 robw=64   1.5156   0.9961    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=3 robc=4 robd=2 robw=64   1.5297   0.9960    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5297   0.9958    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=8 robd=2 robw=64   1.5350   0.9948    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5352   0.9934    44.56    14.18  Strongly Sust.
+  Ran sniper 1 time this iteration (33 total).
+
+=== Iteration 28 ===
+  Evaluating 1 configuration(s) (top acquisition score of 400 candidates)...
+  [mesmo] bp=2048 bpt=a53 l1da=8 l1d=16 l1ia=8 l1i=64 l2a=8 l2=512 l3a=16 l3=4096 nhist=2 robc=8 robd=8 robw=512  ASI=-0.0132  S=1.5059  A= 123.31  P=762.75  [Unsustainable]
+  Deleted 1 non-Pareto output directory.
+
+  Pareto front after iteration 28 (11 points, HV=1.7025):
+  Params                                  ASI  Speedup     Area  PeakPow  Region
+  ──────────────────────────────────────────────────────────────────────────────
+  bpt=nn l1da=8 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=8 l3=8192 nnbl=16 nnlr=0.005 robc=10 robd=8 robw=16  -0.0957   1.5061   108.88    43.97  Unsustainable
+  bp=1024 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=32 l2a=8 l2=512 l3a=8 l3=4096 nhist=2 robc=10 robd=8 robw=64   0.2268   1.5059    73.96    43.61  Unsustainable
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 robc=2 robd=2 robw=256   0.2457   1.4884    86.13    20.26  Unsustainable
+  bpt=nn l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 nnbl=16 nnlr=0.005 robc=2 robd=2 robw=256   0.2457   1.4883    86.13    20.26  Unsustainable
+  baseline                             1.0000   1.0000    49.23    19.88  Reference
+  bpt=nn l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=64 nnlr=0.001 robc=4 robd=2 robw=64   1.5155   0.9962    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=4 robc=4 robd=2 robw=64   1.5156   0.9961    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=3 robc=4 robd=2 robw=64   1.5297   0.9960    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5297   0.9958    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=8 robd=2 robw=64   1.5350   0.9948    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5352   0.9934    44.56    14.18  Strongly Sust.
+  Ran sniper 1 time this iteration (34 total).
+
+=== Iteration 29 ===
+  Evaluating 1 configuration(s) (top acquisition score of 400 candidates)...
+  [mesmo] bp=1024 bpt=a53 l1da=8 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=8 l3=8192 nhist=2 robc=10 robd=8 robw=16  ASI=-0.0957  S=1.5062  A= 108.88  P= 43.97  [Unsustainable]
+  Deleted 1 non-Pareto output directory.
+
+  Pareto front after iteration 29 (11 points, HV=1.7025):
+  Params                                  ASI  Speedup     Area  PeakPow  Region
+  ──────────────────────────────────────────────────────────────────────────────
+  bp=1024 bpt=a53 l1da=8 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=8 l3=8192 nhist=2 robc=10 robd=8 robw=16  -0.0957   1.5062   108.88    43.97  Unsustainable
+  bp=1024 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=32 l2a=8 l2=512 l3a=8 l3=4096 nhist=2 robc=10 robd=8 robw=64   0.2268   1.5059    73.96    43.61  Unsustainable
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 robc=2 robd=2 robw=256   0.2457   1.4884    86.13    20.26  Unsustainable
+  bpt=nn l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 nnbl=16 nnlr=0.005 robc=2 robd=2 robw=256   0.2457   1.4883    86.13    20.26  Unsustainable
+  baseline                             1.0000   1.0000    49.23    19.88  Reference
+  bpt=nn l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=64 nnlr=0.001 robc=4 robd=2 robw=64   1.5155   0.9962    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=4 robc=4 robd=2 robw=64   1.5156   0.9961    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=3 robc=4 robd=2 robw=64   1.5297   0.9960    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5297   0.9958    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=8 robd=2 robw=64   1.5350   0.9948    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5352   0.9934    44.56    14.18  Strongly Sust.
+  Ran sniper 1 time this iteration (35 total).
+
+=== Iteration 30 ===
+  Evaluating 1 configuration(s) (top acquisition score of 400 candidates)...
+  [mesmo] bpt=nn l1da=8 l1d=16 l1ia=4 l1i=64 l2a=8 l2=512 l3a=4 l3=8192 nnbl=32 nnlr=0.0005 robc=10 robd=8 robw=1024  ASI=-0.0371  S=1.5003  A= 208.16  P=1192.48  [Unsustainable]
+  Deleted 1 non-Pareto output directory.
+
+  Pareto front after iteration 30 (11 points, HV=1.7025):
+  Params                                  ASI  Speedup     Area  PeakPow  Region
+  ──────────────────────────────────────────────────────────────────────────────
+  bp=1024 bpt=a53 l1da=8 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=8 l3=8192 nhist=2 robc=10 robd=8 robw=16  -0.0957   1.5062   108.88    43.97  Unsustainable
+  bp=1024 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=32 l2a=8 l2=512 l3a=8 l3=4096 nhist=2 robc=10 robd=8 robw=64   0.2268   1.5059    73.96    43.61  Unsustainable
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 robc=2 robd=2 robw=256   0.2457   1.4884    86.13    20.26  Unsustainable
+  bpt=nn l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 nnbl=16 nnlr=0.005 robc=2 robd=2 robw=256   0.2457   1.4883    86.13    20.26  Unsustainable
+  baseline                             1.0000   1.0000    49.23    19.88  Reference
+  bpt=nn l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=64 nnlr=0.001 robc=4 robd=2 robw=64   1.5155   0.9962    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=4 robc=4 robd=2 robw=64   1.5156   0.9961    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=3 robc=4 robd=2 robw=64   1.5297   0.9960    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5297   0.9958    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=8 robd=2 robw=64   1.5350   0.9948    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5352   0.9934    44.56    14.18  Strongly Sust.
+  Ran sniper 1 time this iteration (36 total).
+
+=== Iteration 31 ===
+  Evaluating 1 configuration(s) (top acquisition score of 400 candidates)...
+  [mesmo] bp=512 bpt=a53 l1da=4 l1d=16 l1ia=4 l1i=16 l2a=8 l2=128 l3a=4 l3=4096 nhist=2 robc=4 robd=8 robw=1024  ASI=-0.0227  S=1.4799  A= 165.18  P=1187.65  [Unsustainable]
+  Deleted 1 non-Pareto output directory.
+
+  Pareto front after iteration 31 (11 points, HV=1.7025):
+  Params                                  ASI  Speedup     Area  PeakPow  Region
+  ──────────────────────────────────────────────────────────────────────────────
+  bp=1024 bpt=a53 l1da=8 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=8 l3=8192 nhist=2 robc=10 robd=8 robw=16  -0.0957   1.5062   108.88    43.97  Unsustainable
+  bp=1024 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=32 l2a=8 l2=512 l3a=8 l3=4096 nhist=2 robc=10 robd=8 robw=64   0.2268   1.5059    73.96    43.61  Unsustainable
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 robc=2 robd=2 robw=256   0.2457   1.4884    86.13    20.26  Unsustainable
+  bpt=nn l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 nnbl=16 nnlr=0.005 robc=2 robd=2 robw=256   0.2457   1.4883    86.13    20.26  Unsustainable
+  baseline                             1.0000   1.0000    49.23    19.88  Reference
+  bpt=nn l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=64 nnlr=0.001 robc=4 robd=2 robw=64   1.5155   0.9962    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=4 robc=4 robd=2 robw=64   1.5156   0.9961    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=3 robc=4 robd=2 robw=64   1.5297   0.9960    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5297   0.9958    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=8 robd=2 robw=64   1.5350   0.9948    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5352   0.9934    44.56    14.18  Strongly Sust.
+  Ran sniper 1 time this iteration (37 total).
+
+=== Iteration 32 ===
+  Evaluating 1 configuration(s) (top acquisition score of 400 candidates)...
+  [mesmo] bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=64 nnlr=0.001 robc=8 robd=2 robw=64  ASI= 1.5357  S=0.9905  A=  44.56  P= 14.17  [Strongly Sust.]
+
+  Pareto front after iteration 32 (12 points, HV=1.7030):
+  Params                                  ASI  Speedup     Area  PeakPow  Region
+  ──────────────────────────────────────────────────────────────────────────────
+  bp=1024 bpt=a53 l1da=8 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=8 l3=8192 nhist=2 robc=10 robd=8 robw=16  -0.0957   1.5062   108.88    43.97  Unsustainable
+  bp=1024 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=32 l2a=8 l2=512 l3a=8 l3=4096 nhist=2 robc=10 robd=8 robw=64   0.2268   1.5059    73.96    43.61  Unsustainable
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 robc=2 robd=2 robw=256   0.2457   1.4884    86.13    20.26  Unsustainable
+  bpt=nn l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 nnbl=16 nnlr=0.005 robc=2 robd=2 robw=256   0.2457   1.4883    86.13    20.26  Unsustainable
+  baseline                             1.0000   1.0000    49.23    19.88  Reference
+  bpt=nn l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=64 nnlr=0.001 robc=4 robd=2 robw=64   1.5155   0.9962    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=4 robc=4 robd=2 robw=64   1.5156   0.9961    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=3 robc=4 robd=2 robw=64   1.5297   0.9960    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5297   0.9958    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=8 robd=2 robw=64   1.5350   0.9948    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5352   0.9934    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=64 nnlr=0.001 robc=8 robd=2 robw=64   1.5357   0.9905    44.56    14.17  Strongly Sust.
+  Ran sniper 1 time this iteration (38 total).
+
+=== Iteration 33 ===
+  Evaluating 1 configuration(s) (top acquisition score of 400 candidates)...
+  [mesmo] bpt=tage l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 robc=4 robd=2 robw=64  ASI= 1.5350  S=0.9949  A=  44.56  P= 14.18  [Strongly Sust.]
+
+  Pareto front after iteration 33 (13 points, HV=1.7030):
+  Params                                  ASI  Speedup     Area  PeakPow  Region
+  ──────────────────────────────────────────────────────────────────────────────
+  bp=1024 bpt=a53 l1da=8 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=8 l3=8192 nhist=2 robc=10 robd=8 robw=16  -0.0957   1.5062   108.88    43.97  Unsustainable
+  bp=1024 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=32 l2a=8 l2=512 l3a=8 l3=4096 nhist=2 robc=10 robd=8 robw=64   0.2268   1.5059    73.96    43.61  Unsustainable
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 robc=2 robd=2 robw=256   0.2457   1.4884    86.13    20.26  Unsustainable
+  bpt=nn l1da=4 l1d=16 l1ia=8 l1i=16 l2a=4 l2=256 l3a=4 l3=8192 nnbl=16 nnlr=0.005 robc=2 robd=2 robw=256   0.2457   1.4883    86.13    20.26  Unsustainable
+  baseline                             1.0000   1.0000    49.23    19.88  Reference
+  bpt=nn l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=64 nnlr=0.001 robc=4 robd=2 robw=64   1.5155   0.9962    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=4 robc=4 robd=2 robw=64   1.5156   0.9961    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=3 robc=4 robd=2 robw=64   1.5297   0.9960    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5297   0.9958    44.55    14.23  Strongly Sust.
+  bpt=tage l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 robc=4 robd=2 robw=64   1.5350   0.9949    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=8 robd=2 robw=64   1.5350   0.9948    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5352   0.9934    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=64 nnlr=0.001 robc=8 robd=2 robw=64   1.5357   0.9905    44.56    14.17  Strongly Sust.
+  Ran sniper 1 time this iteration (39 total).
+
+=== Iteration 34 ===
+  Evaluating 1 configuration(s) (top acquisition score of 400 candidates)...
+  [mesmo] bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=64 l2a=8 l2=256 l3a=4 l3=4096 robc=10 robd=2 robw=16  ASI= 1.0418  S=1.4885  A=  55.92  P= 16.49  [Strongly Sust.]
+  Deleted 2 non-Pareto output directories.
+
+  Pareto front after iteration 34 (11 points, HV=2.0920):
+  Params                                  ASI  Speedup     Area  PeakPow  Region
+  ──────────────────────────────────────────────────────────────────────────────
+  bp=1024 bpt=a53 l1da=8 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=8 l3=8192 nhist=2 robc=10 robd=8 robw=16  -0.0957   1.5062   108.88    43.97  Unsustainable
+  bp=1024 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=32 l2a=8 l2=512 l3a=8 l3=4096 nhist=2 robc=10 robd=8 robw=64   0.2268   1.5059    73.96    43.61  Unsustainable
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=64 l2a=8 l2=256 l3a=4 l3=4096 robc=10 robd=2 robw=16   1.0418   1.4885    55.92    16.49  Strongly Sust.
+  bpt=nn l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=64 nnlr=0.001 robc=4 robd=2 robw=64   1.5155   0.9962    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=4 robc=4 robd=2 robw=64   1.5156   0.9961    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=3 robc=4 robd=2 robw=64   1.5297   0.9960    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5297   0.9958    44.55    14.23  Strongly Sust.
+  bpt=tage l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 robc=4 robd=2 robw=64   1.5350   0.9949    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=8 robd=2 robw=64   1.5350   0.9948    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5352   0.9934    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=64 nnlr=0.001 robc=8 robd=2 robw=64   1.5357   0.9905    44.56    14.17  Strongly Sust.
+  Ran sniper 1 time this iteration (40 total).
+
+=== Iteration 35 ===
+  Evaluating 1 configuration(s) (top acquisition score of 400 candidates)...
+  [mesmo] bp=1024 bpt=a53 l1da=8 l1d=16 l1ia=8 l1i=64 l2a=4 l2=256 l3a=16 l3=8192 nhist=4 robc=10 robd=8 robw=16  ASI=-0.0299  S=1.4884  A= 101.64  P= 42.97  [Unsustainable]
+  Deleted 1 non-Pareto output directory.
+
+  Pareto front after iteration 35 (11 points, HV=2.0920):
+  Params                                  ASI  Speedup     Area  PeakPow  Region
+  ──────────────────────────────────────────────────────────────────────────────
+  bp=1024 bpt=a53 l1da=8 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=8 l3=8192 nhist=2 robc=10 robd=8 robw=16  -0.0957   1.5062   108.88    43.97  Unsustainable
+  bp=1024 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=32 l2a=8 l2=512 l3a=8 l3=4096 nhist=2 robc=10 robd=8 robw=64   0.2268   1.5059    73.96    43.61  Unsustainable
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=64 l2a=8 l2=256 l3a=4 l3=4096 robc=10 robd=2 robw=16   1.0418   1.4885    55.92    16.49  Strongly Sust.
+  bpt=nn l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=64 nnlr=0.001 robc=4 robd=2 robw=64   1.5155   0.9962    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=4 robc=4 robd=2 robw=64   1.5156   0.9961    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=3 robc=4 robd=2 robw=64   1.5297   0.9960    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5297   0.9958    44.55    14.23  Strongly Sust.
+  bpt=tage l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 robc=4 robd=2 robw=64   1.5350   0.9949    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=8 robd=2 robw=64   1.5350   0.9948    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5352   0.9934    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=64 nnlr=0.001 robc=8 robd=2 robw=64   1.5357   0.9905    44.56    14.17  Strongly Sust.
+  Ran sniper 1 time this iteration (41 total).
+
+=== Iteration 36 ===
+  Evaluating 1 configuration(s) (top acquisition score of 400 candidates)...
+  [mesmo] bp=2048 bpt=a53 l1da=8 l1d=16 l1ia=4 l1i=32 l2a=8 l2=512 l3a=4 l3=4096 nhist=2 robc=10 robd=8 robw=256  ASI= 0.0003  S=1.5059  A=  98.08  P=534.23  [Unsustainable]
+  Deleted 1 non-Pareto output directory.
+
+  Pareto front after iteration 36 (11 points, HV=2.0920):
+  Params                                  ASI  Speedup     Area  PeakPow  Region
+  ──────────────────────────────────────────────────────────────────────────────
+  bp=1024 bpt=a53 l1da=8 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=8 l3=8192 nhist=2 robc=10 robd=8 robw=16  -0.0957   1.5062   108.88    43.97  Unsustainable
+  bp=1024 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=32 l2a=8 l2=512 l3a=8 l3=4096 nhist=2 robc=10 robd=8 robw=64   0.2268   1.5059    73.96    43.61  Unsustainable
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=64 l2a=8 l2=256 l3a=4 l3=4096 robc=10 robd=2 robw=16   1.0418   1.4885    55.92    16.49  Strongly Sust.
+  bpt=nn l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=64 nnlr=0.001 robc=4 robd=2 robw=64   1.5155   0.9962    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=4 robc=4 robd=2 robw=64   1.5156   0.9961    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=3 robc=4 robd=2 robw=64   1.5297   0.9960    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5297   0.9958    44.55    14.23  Strongly Sust.
+  bpt=tage l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 robc=4 robd=2 robw=64   1.5350   0.9949    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=8 robd=2 robw=64   1.5350   0.9948    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5352   0.9934    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=64 nnlr=0.001 robc=8 robd=2 robw=64   1.5357   0.9905    44.56    14.17  Strongly Sust.
+  Ran sniper 1 time this iteration (42 total).
+
+=== Iteration 37 ===
+  Evaluating 1 configuration(s) (top acquisition score of 400 candidates)...
+  [mesmo] bpt=nn l1da=8 l1d=32 l1ia=8 l1i=64 l2a=4 l2=512 l3a=8 l3=4096 nnbl=32 nnlr=0.0005 robc=4 robd=10 robw=256  ASI=-0.0085  S=1.5013  A= 119.46  P=996.01  [Unsustainable]
+  Deleted 1 non-Pareto output directory.
+
+  Pareto front after iteration 37 (11 points, HV=2.0920):
+  Params                                  ASI  Speedup     Area  PeakPow  Region
+  ──────────────────────────────────────────────────────────────────────────────
+  bp=1024 bpt=a53 l1da=8 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=8 l3=8192 nhist=2 robc=10 robd=8 robw=16  -0.0957   1.5062   108.88    43.97  Unsustainable
+  bp=1024 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=32 l2a=8 l2=512 l3a=8 l3=4096 nhist=2 robc=10 robd=8 robw=64   0.2268   1.5059    73.96    43.61  Unsustainable
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=64 l2a=8 l2=256 l3a=4 l3=4096 robc=10 robd=2 robw=16   1.0418   1.4885    55.92    16.49  Strongly Sust.
+  bpt=nn l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=64 nnlr=0.001 robc=4 robd=2 robw=64   1.5155   0.9962    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=4 robc=4 robd=2 robw=64   1.5156   0.9961    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=3 robc=4 robd=2 robw=64   1.5297   0.9960    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5297   0.9958    44.55    14.23  Strongly Sust.
+  bpt=tage l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 robc=4 robd=2 robw=64   1.5350   0.9949    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=8 robd=2 robw=64   1.5350   0.9948    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5352   0.9934    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=64 nnlr=0.001 robc=8 robd=2 robw=64   1.5357   0.9905    44.56    14.17  Strongly Sust.
+  Ran sniper 1 time this iteration (43 total).
+
+=== Iteration 38 ===
+  Evaluating 1 configuration(s) (top acquisition score of 400 candidates)...
+  [mesmo] bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=8 robd=2 robw=16  ASI= 1.5796  S=0.9948  A=  44.42  P= 13.81  [Strongly Sust.]
+  Deleted 2 non-Pareto output directories.
+
+  Pareto front after iteration 38 (10 points, HV=2.1357):
+  Params                                  ASI  Speedup     Area  PeakPow  Region
+  ──────────────────────────────────────────────────────────────────────────────
+  bp=1024 bpt=a53 l1da=8 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=8 l3=8192 nhist=2 robc=10 robd=8 robw=16  -0.0957   1.5062   108.88    43.97  Unsustainable
+  bp=1024 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=32 l2a=8 l2=512 l3a=8 l3=4096 nhist=2 robc=10 robd=8 robw=64   0.2268   1.5059    73.96    43.61  Unsustainable
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=64 l2a=8 l2=256 l3a=4 l3=4096 robc=10 robd=2 robw=16   1.0418   1.4885    55.92    16.49  Strongly Sust.
+  bpt=nn l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=64 nnlr=0.001 robc=4 robd=2 robw=64   1.5155   0.9962    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=4 robc=4 robd=2 robw=64   1.5156   0.9961    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=3 robc=4 robd=2 robw=64   1.5297   0.9960    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5297   0.9958    44.55    14.23  Strongly Sust.
+  bpt=tage l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 robc=4 robd=2 robw=64   1.5350   0.9949    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=8 robd=2 robw=64   1.5350   0.9948    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=8 robd=2 robw=16   1.5796   0.9948    44.42    13.81  Strongly Sust.
+  Ran sniper 1 time this iteration (44 total).
+
+=== Iteration 39 ===
+  Evaluating 1 configuration(s) (top acquisition score of 400 candidates)...
+  [mesmo] bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=8 robd=2 robw=32  ASI= 1.5563  S=0.9942  A=  44.50  P= 14.00  [Strongly Sust.]
+  Deleted 1 non-Pareto output directory.
+
+  Pareto front after iteration 39 (10 points, HV=2.1357):
+  Params                                  ASI  Speedup     Area  PeakPow  Region
+  ──────────────────────────────────────────────────────────────────────────────
+  bp=1024 bpt=a53 l1da=8 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=8 l3=8192 nhist=2 robc=10 robd=8 robw=16  -0.0957   1.5062   108.88    43.97  Unsustainable
+  bp=1024 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=32 l2a=8 l2=512 l3a=8 l3=4096 nhist=2 robc=10 robd=8 robw=64   0.2268   1.5059    73.96    43.61  Unsustainable
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=64 l2a=8 l2=256 l3a=4 l3=4096 robc=10 robd=2 robw=16   1.0418   1.4885    55.92    16.49  Strongly Sust.
+  bpt=nn l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=64 nnlr=0.001 robc=4 robd=2 robw=64   1.5155   0.9962    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=4 robc=4 robd=2 robw=64   1.5156   0.9961    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=3 robc=4 robd=2 robw=64   1.5297   0.9960    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5297   0.9958    44.55    14.23  Strongly Sust.
+  bpt=tage l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 robc=4 robd=2 robw=64   1.5350   0.9949    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=8 robd=2 robw=64   1.5350   0.9948    44.56    14.18  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=8 robd=2 robw=16   1.5796   0.9948    44.42    13.81  Strongly Sust.
+  Ran sniper 1 time this iteration (45 total).
+
+=== Iteration 40 ===
+  Evaluating 1 configuration(s) (top acquisition score of 400 candidates)...
+  [mesmo] bp=512 bpt=a53 l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nhist=4 robc=8 robd=2 robw=16  ASI= 1.5796  S=0.9949  A=  44.42  P= 13.81  [Strongly Sust.]
+  Deleted 2 non-Pareto output directories.
+
+  Pareto front after iteration 40 (9 points, HV=2.1357):
+  Params                                  ASI  Speedup     Area  PeakPow  Region
+  ──────────────────────────────────────────────────────────────────────────────
+  bp=1024 bpt=a53 l1da=8 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=8 l3=8192 nhist=2 robc=10 robd=8 robw=16  -0.0957   1.5062   108.88    43.97  Unsustainable
+  bp=1024 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=32 l2a=8 l2=512 l3a=8 l3=4096 nhist=2 robc=10 robd=8 robw=64   0.2268   1.5059    73.96    43.61  Unsustainable
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=64 l2a=8 l2=256 l3a=4 l3=4096 robc=10 robd=2 robw=16   1.0418   1.4885    55.92    16.49  Strongly Sust.
+  bpt=nn l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=64 nnlr=0.001 robc=4 robd=2 robw=64   1.5155   0.9962    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=4 robc=4 robd=2 robw=64   1.5156   0.9961    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=3 robc=4 robd=2 robw=64   1.5297   0.9960    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5297   0.9958    44.55    14.23  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nhist=4 robc=8 robd=2 robw=16   1.5796   0.9949    44.42    13.81  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=8 robd=2 robw=16   1.5796   0.9948    44.42    13.81  Strongly Sust.
+  Ran sniper 1 time this iteration (46 total).
+
+Total sniper runs: 46
+Final hypervolume: 2.1357 (ref_asi=-0.0301)
+
+Plot saved → /home/jaco/school/stage/asi/asi-output/pareto_history.png
+Plot saved → /home/jaco/school/stage/asi/asi-output/pareto_final.png
+Plot saved → /home/jaco/school/stage/asi/asi-output/hv_vs_sims.png
+=== Final Pareto Front ===
+  Params                                  ASI  Speedup     Area  PeakPow  Region
+  ──────────────────────────────────────────────────────────────────────────────
+  bp=1024 bpt=a53 l1da=8 l1d=32 l1ia=8 l1i=16 l2a=8 l2=512 l3a=8 l3=8192 nhist=2 robc=10 robd=8 robw=16  -0.0957   1.5062   108.88    43.97  Unsustainable
+  bp=1024 bpt=a53 l1da=4 l1d=16 l1ia=8 l1i=32 l2a=8 l2=512 l3a=8 l3=4096 nhist=2 robc=10 robd=8 robw=64   0.2268   1.5059    73.96    43.61  Unsustainable
+  bpt=pentium_m l1da=4 l1d=16 l1ia=8 l1i=64 l2a=8 l2=256 l3a=4 l3=4096 robc=10 robd=2 robw=16   1.0418   1.4885    55.92    16.49  Strongly Sust.
+  bpt=nn l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=64 nnlr=0.001 robc=4 robd=2 robw=64   1.5155   0.9962    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=64 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=4 robc=4 robd=2 robw=64   1.5156   0.9961    44.89    14.27  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nhist=3 robc=4 robd=2 robw=64   1.5297   0.9960    44.55    14.23  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=16 l3=2048 nnbl=32 nnlr=0.005 robc=4 robd=2 robw=64   1.5297   0.9958    44.55    14.23  Strongly Sust.
+  bp=512 bpt=a53 l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nhist=4 robc=8 robd=2 robw=16   1.5796   0.9949    44.42    13.81  Strongly Sust.
+  bpt=nn l1da=8 l1d=32 l1ia=4 l1i=32 l2a=8 l2=128 l3a=4 l3=2048 nnbl=32 nnlr=0.005 robc=8 robd=2 robw=16   1.5796   0.9948    44.42    13.81  Strongly Sust.

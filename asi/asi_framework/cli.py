@@ -56,23 +56,16 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Alpha weight for ASI (0=operational, 1=embodied).")
     parser.add_argument("--strategy", choices=sorted(STRATEGIES), default="greedy",
                         help="Search strategy: 'greedy' (sensitivity-freezing hill-climb, default), "
-                             "'spea2' (COLE-style multi-objective evolutionary search), or 'mesmo' "
-                             "(max-value entropy search multi-objective Bayesian optimization).")
+                             "'spea2' (COLE-style multi-objective evolutionary search), 'mesmo' "
+                             "(max-value entropy search multi-objective Bayesian optimization), or "
+                             "'hybrid' (mesmo until its hypervolume plateaus, then spea2 seeded from "
+                             "mesmo's final Pareto front instead of a random one).")
     parser.add_argument("--iterations", type=int, default=None,
-                        help="Maximum number of search iterations (greedy) / generations (spea2) "
-                             "/ BO iterations (mesmo). Defaults to whichever strategy is selected "
-                             "picking its own default (5 for greedy, 30 for spea2/mesmo) rather than "
-                             "one fixed number for every strategy.")
-    parser.add_argument("--compute-ref-asi", action="store_true",
-                        help="Recompute the hypervolume reference point (ref_asi) for real: the "
-                             "worst ASI reachable by maxing out every parameter, minimized over "
-                             "every branch_predictor_type (costs up to 4 extra Sniper simulations, "
-                             "cached in search_state.json for future resumes of this outputdir). "
-                             "Off by default, which just uses config.DEFAULT_REF_ASI -- a constant "
-                             "precomputed for the shipped param_space.json at the default --alpha. "
-                             "Pass this once after editing param_space.json or changing --alpha, "
-                             "note the ref_asi it prints, and hardcode that as the new "
-                             "DEFAULT_REF_ASI for future runs instead of recomputing it every time.")
+                        help="Maximum number of search iterations (greedy) / generations (spea2, "
+                             "and hybrid's spea2 phase) / BO iterations (mesmo). Defaults to whichever "
+                             "strategy is selected picking its own default (5 for greedy, 30 for "
+                             "spea2/mesmo/hybrid) rather than one fixed number for every strategy. For "
+                             "hybrid's mesmo-phase iteration budget, see --mesmo-phase-iterations.")
     parser.add_argument("--log", nargs="?", const="auto", metavar="PATH",
                         help="Save terminal output to PATH. Omit PATH to use outputdir/run.log.")
     parser.add_argument("--save-plot", nargs="?", const="auto", metavar="PATH",
@@ -130,6 +123,16 @@ def build_parser() -> argparse.ArgumentParser:
                                    "paper's fixed-budget algorithm -- unlike spea2's --patience, a mesmo "
                                    "iteration can evaluate as little as one point, so a short patience "
                                    "window would trigger on ordinary exploration noise.")
+
+    hybrid_group = parser.add_argument_group("hybrid strategy options")
+    hybrid_group.add_argument("--mesmo-phase-iterations", type=int, default=30, dest="mesmo_max_iterations",
+                               help="Max MESMO iterations in hybrid's exploration phase before "
+                                    "switching to SPEA2 (hybrid only) -- the phase usually stops "
+                                    "earlier once its hypervolume plateaus (see --mesmo-patience, "
+                                    "shared with plain 'mesmo', but defaulting to 5 instead of unset "
+                                    "when the strategy is 'hybrid', since plateau detection is this "
+                                    "phase's whole point). --iterations/--populations/etc. above "
+                                    "configure hybrid's subsequent spea2 phase.")
 
     preeval_group = parser.add_argument_group("pre-evaluation screening options")
     preeval_group.add_argument("--preeval-samples", type=int, default=0,
@@ -220,7 +223,6 @@ def main() -> int:
         "outputdir": outputdir,
         "benchmarks": args.benchmarks,
         "alpha": args.alpha,
-        "compute_ref_asi": args.compute_ref_asi,
     }
     # Only forward max_iterations if the user actually passed --iterations;
     # otherwise let the chosen strategy's own function default apply (5 for
