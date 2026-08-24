@@ -1,0 +1,25 @@
+[package]
+name = "titan_controller"
+version = "0.1.0"
+edition = "2021"
+default-run = "titan_controller"
+
+include = ["/src","/script-template",".id"]
+exclude = ["Session.vim", "/process_scripts"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cpython = {version="0.7", features = ["extension-module"]}
+clap = {version="4.1.4", features = ["derive"]}
+regex = "1"
+lazy_static = "1.4.0"
+time = {version="0.3", features = ["formatting"]}
+json = "0.12.4"
+serde = { version = "1.0.202", features = ["derive"] }
+serde_json = "1.0.117"
+rustc-hash = { version = "2.1.1", default-features = false }
+rusqlite = "0.37.0"
+strum_macros = "0.27.1"
+strum = "0.27.1"
+dirs = "6.0.0"

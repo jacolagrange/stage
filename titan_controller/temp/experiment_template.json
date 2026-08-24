@@ -1,0 +1,39 @@
+{
+	"job":{
+		"name":"test",
+		"core_per_experiment":1,
+		"mem_per_core":2048,
+		"vm_name":"sniper2404",
+		"runs":1
+	},
+  "benchmarks": [
+		"./benchmark_template.json"
+	],
+	"git":{
+		"sniper_branch":"jaime-SVR"
+	},
+	"vm_mount":{
+		"input_mount":"None"
+	},
+	"sniper_parameters":{
+		"arguments": [
+			"-c", "cortex-a510-FSC",
+			"-n", "1",
+			"--use-va",
+			"-g", "--perf_model/core/rob_timer/in_order={in_order}",
+			"-g", "--perf_model/core/rob_timer/run_ahead/timer_type={timer}",
+			"-g", "--perf_model/core/rob_timer/run_ahead/micro_vector_size={micro_vector_size}",
+			"-g", "--perf_model/core/rob_timer/run_ahead/max_prefetch_dist={max_prefetch_dist}",
+			"-g", "--perf_model/core/rob_timer/run_ahead/scalar_per_vec_reg={max_prefetch_dist}",
+			"-g", "--perf_model/core/rob_timer/run_ahead/unrolling=false",
+			"-s", "stop-by-icount:2000000"
+		],
+		"param_values": {
+			"in_order":["true"],
+			"timer":["piggy-bagging"],
+			"micro_vector_size":[1],
+			"max_prefetch_dist":[16]
+		}
+	},
+	"host_destination_path":"/tmp/my_experiment"
+}

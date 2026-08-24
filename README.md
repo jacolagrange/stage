@@ -41,6 +41,7 @@ Pareto front instead of a random one. More strategies are planned; see
 - [Strategy: `hybrid`](#strategy-hybrid-mesmo--spea2)
 - [Optional pre-processing: parameter screening](#optional-pre-processing-parameter-screening)
 - [Testing without Sniper](#testing-without-sniper)
+- [Running on Titan (HPC)](#running-on-titan-hpc)
 - [Extending: adding a new strategy](#extending-adding-a-new-strategy)
 
 ## The ASI metric
@@ -771,6 +772,17 @@ it runs in seconds and can be iterated on without a working simulator setup.
    can be checked by eye: parameters with a real effect should stay active
    across iterations, while null parameters should freeze within the first
    couple of iterations instead of continuing to be searched.
+
+## Running on Titan (HPC)
+
+Running full search strategies at scale means running Sniper hundreds or
+thousands of times, which isn't practical on a single machine. `titan_controller/`
+(vendored in this repo) submits/tracks/collects those runs as Slurm jobs on
+the UGent ELIS Titan cluster. See
+[titan_controller/RUNBOOK.md](titan_controller/RUNBOOK.md) for the actual
+working setup — how to submit an experiment, where results land, and how to
+add or modify a benchmark. `titan_controller/README.md` covers generic
+install/build instructions for the tool itself.
 
 ## Extending: adding a new strategy
 
