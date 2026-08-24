@@ -46,12 +46,14 @@ pub struct ParseExperiment{
 }
 
 impl ParseExperiment{
-    pub fn new(exp_json_path: &Path) -> Self{
+    pub fn new(exp_json_path: &Path) -> Result<Self, String> {
         let mut exp_json_data = String::new();
-        File::open(exp_json_path).unwrap()
+        File::open(exp_json_path)
+            .map_err(|e| format!("Could not open experiment file '{}': {e}", exp_json_path.display()))?
             .read_to_string(&mut exp_json_data)
-            .unwrap();
-        let exp = json::parse(&exp_json_data).unwrap();
+            .map_err(|e| format!("Could not read experiment file '{}': {e}", exp_json_path.display()))?;
+        let exp = json::parse(&exp_json_data)
+            .map_err(|e| format!("Invalid JSON in experiment file '{}': {e}", exp_json_path.display()))?;
 
         let mut combined_suites = json::JsonValue::new_array();
         for bench_location in exp["benchmarks"].members() {
@@ -62,10 +64,12 @@ impl ParseExperiment{
             println!("Using benchmark json file {:?}", bench_path);
 
             let mut bench_json_data = String::new();
-            File::open(bench_path).unwrap()
+            File::open(&bench_path)
+                .map_err(|e| format!("Could not open benchmark file '{}': {e}", bench_path.display()))?
                 .read_to_string(&mut bench_json_data)
-                .unwrap();
-            let bench = json::parse(&bench_json_data).unwrap();
+                .map_err(|e| format!("Could not read benchmark file '{}': {e}", bench_path.display()))?;
+            let bench = json::parse(&bench_json_data)
+                .map_err(|e| format!("Invalid JSON in benchmark file '{}': {e}", bench_path.display()))?;
             for suite in bench["suites"].members() {
                 combined_suites.push(suite.clone()).unwrap();
             }
@@ -74,7 +78,7 @@ impl ParseExperiment{
             "suites" => combined_suites
         };
 
-        Self {exp, bench_suites}
+        Ok(Self {exp, bench_suites})
     }
 
     pub fn get_arguments(&self) -> Experiment {

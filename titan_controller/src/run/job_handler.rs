@@ -36,7 +36,7 @@ impl JobHandler{
     pub fn submit_jobs(&self, experiment_path: &str, dry_run: &bool) -> Result<(), Box<dyn std::error::Error>> {
         //Get experiments parameters
         let experiment_path = Path::new(experiment_path);
-        let parser = ParseExperiment::new(&experiment_path);
+        let parser = ParseExperiment::new(&experiment_path)?;
         let mut experiment = parser.get_arguments();
 
         let dst = parser.get_exp_dst();
@@ -112,7 +112,10 @@ impl JobHandler{
     }
 
     pub fn collect_jobs(&mut self, experiment_map_file: &Path) -> Result<(), Box<dyn std::error::Error>> {
-        let mut experiment = parse_experiment::get_exp_map(&experiment_map_file).unwrap();
+        let mut experiment = parse_experiment::get_exp_map(&experiment_map_file).map_err(|e| format!(
+            "No experiment found at '{}' ({e}). Check --path matches the host_destination_path you --submit'd with.",
+            experiment_map_file.display()
+        ))?;
         let mut cur_db = ExperimentsDataBase::new()?;
         let results_dir = Self::results_dir(experiment_map_file);
 
