@@ -270,6 +270,13 @@ scp ~/school/stage/snipersim/tools/sniper_lib.py \
 
 ## Troubleshooting
 
+- **`--collect` keeps resubmitting a job that actually succeeded** — was a
+  real bug (fixed): `retry_experiment()` resubmitted without first seeding
+  the local tracking DB with rows for the new paths, so every
+  collect-triggered resubmit went untracked and the *next* `--collect` saw
+  "never submitted" and resubmitted again, indefinitely, regardless of
+  whether the run actually succeeded. If you're on a binary built before
+  this fix, rebuild (`cargo build --release`) to pick it up.
 - **`Experiment is already fully done, nothing to do`** on a fresh
   `--submit` — see the `host_destination_path` note above. Either collect
   the in-flight job first, or `rm ~/.cache/titan_controller/job_info.sqlite3`.
