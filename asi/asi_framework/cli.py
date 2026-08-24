@@ -178,7 +178,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _benchmark_name(cmd: list[str], used: set[str]) -> str:
     """Derive a display/output-dir name for a benchmark command from its
-    executable's parent directory (matching the libs/benchmarks/<NAME>/bench
+    executable's parent directory (matching the benchmarks/<NAME>/bench
     layout), de-duplicating if the same name would be used twice."""
     exe = Path(cmd[0])
     stem = exe.resolve().parent.name or exe.stem or "bench"
