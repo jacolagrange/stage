@@ -4,7 +4,7 @@ import inspect
 import sys
 from pathlib import Path
 
-from .config import RUN_SNIPER, DEFAULT_OUTPUT_DIR, DEFAULT_ALPHA
+from .config import RUN_SNIPER, DEFAULT_OUTPUT_DIR, DEFAULT_ALPHA, DEFAULTS
 from . import greedy, spea2, mesmo, screening
 from .strategies import STRATEGIES
 from .plot import plot_pareto_front_on_asi
@@ -163,6 +163,16 @@ def build_parser() -> argparse.ArgumentParser:
     preeval_group.add_argument("--preeval-seed", type=int, default=0,
                                 help="RNG seed for pre-evaluation sampling (default 0). Ignored by "
                                      "--preeval-method plackett_burman, which is fully deterministic.")
+    preeval_group.add_argument("--preeval-cache", action="store_true",
+                                help="Reuse the pruned param space + evaluated points a previous "
+                                     "--preeval-samples run already cached in this outputdir "
+                                     "(outputdir/preeval/screen_cache.json) instead of screening "
+                                     "again -- lets you rerun the search strategy with different "
+                                     "strategy flags without repeating pre-evaluation screening's "
+                                     "Sniper runs. Errors out if no cache matching --config/the "
+                                     "benchmark commands/--alpha exists yet. Mutually exclusive "
+                                     "with --preeval-samples, which already reuses a matching cache "
+                                     "automatically and re-screens (then re-caches) otherwise.")
     return parser
 
 
@@ -200,6 +210,12 @@ def main() -> int:
 
     used_names: set[str] = set()
     args.benchmarks = {_benchmark_name(seg, used_names): seg for seg in segments}
+
+    if args.preeval_cache and args.preeval_samples > 0:
+        parser.error("--preeval-cache and --preeval-samples are mutually exclusive -- "
+                      "--preeval-samples already reuses a matching cache automatically; "
+                      "--preeval-cache is for reusing one without passing --preeval-samples "
+                      "(or --preeval-method) at all.")
 
     sniper = Path(args.sniper).expanduser().resolve()
     if not sniper.exists():
@@ -244,18 +260,26 @@ def main() -> int:
             f"{name} ({' '.join(cmd)})" for name, cmd in args.benchmarks.items()
         ) + "\n")
 
-        if args.preeval_samples > 0:
-            pruned_param_space, preeval_cache = screening.screen_param_space(
-                reference_config=args.config,
-                sniper=sniper,
-                outputdir=outputdir,
-                benchmarks=args.benchmarks,
-                alpha=args.alpha,
-                num_samples=args.preeval_samples,
-                keep_threshold=args.preeval_threshold,
-                seed=args.preeval_seed,
-                method=args.preeval_method,
-            )
+        if args.preeval_samples > 0 or args.preeval_cache:
+            if args.preeval_cache:
+                pruned_param_space, preeval_cache = screening.load_screening_cache(
+                    outputdir=outputdir,
+                    reference_config=args.config,
+                    benchmarks=args.benchmarks,
+                    alpha=args.alpha,
+                )
+            else:
+                pruned_param_space, preeval_cache = screening.screen_param_space(
+                    reference_config=args.config,
+                    sniper=sniper,
+                    outputdir=outputdir,
+                    benchmarks=args.benchmarks,
+                    alpha=args.alpha,
+                    num_samples=args.preeval_samples,
+                    keep_threshold=args.preeval_threshold,
+                    seed=args.preeval_seed,
+                    method=args.preeval_method,
+                )
             # All three strategies read PARAM_SPACE as a name bound into their
             # own module at import time (`from .config import PARAM_SPACE`),
             # so patching config.PARAM_SPACE itself wouldn't reach them --
@@ -268,10 +292,32 @@ def main() -> int:
             # run ignores it in favor of its own saved cache.
             base_kwargs["initial_cache"] = preeval_cache
 
+            # If the chosen strategy can be seeded with a starting generation
+            # (currently only spea2 -- see its seed_entities docstring), hand
+            # it every point screening already evaluated instead of letting
+            # generation 0 draw a fresh random population and leave those
+            # already-paid-for evaluations sitting unused in initial_cache.
+            # This mirrors hybrid.py seeding spea2's generation 0 from mesmo's
+            # final Pareto front. preeval_runs/preeval_invocations attribute
+            # screening's own Sniper cost (which screening itself never
+            # reports/plots a running total for) into the strategy's own
+            # sim_history/"Configurations evaluated" total -- the same
+            # accounting mesmo.py already does for its own initial design
+            # when seeded from a screening cache -- so hv_vs_sims.png's
+            # x-axis reflects the true number of configurations spent, not
+            # just the ones re-run inside this strategy call.
+            if "seed_entities" in accepted:
+                baseline_key = greedy.params_key(DEFAULTS)
+                preeval_points = [p for k, p in preeval_cache.items() if k != baseline_key]
+                base_kwargs["seed_entities"] = [dict(p.params) for p in preeval_points]
+                if preeval_points and "preeval_runs" in accepted:
+                    base_kwargs["preeval_runs"] = len(preeval_points)
+                    base_kwargs["preeval_invocations"] = sum(len(p.per_benchmark) for p in preeval_points)
+
         front = strategy.run(**base_kwargs, **extra_kwargs)
 
         print("=== Final Pareto Front ===")
         greedy.print_pareto_table(front)
 
-    plot_pareto_front_on_asi(front, title="ASI Pareto Front", save_path=save_plot)
+    plot_pareto_front_on_asi(front, title="ASI Pareto Front", save_path=save_plot, show=False)
     return 0

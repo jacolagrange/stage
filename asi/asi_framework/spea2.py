@@ -374,6 +374,8 @@ def explore_pareto_front_spea2(
     seed: int = 0,
     initial_cache: dict[frozenset, DesignPoint] | None = None,
     seed_entities: list[dict[str, Any]] | None = None,
+    preeval_runs: int = 0,
+    preeval_invocations: int = 0,
 ) -> list[DesignPoint]:
     """
     COLE-style multi-objective evolutionary (SPEA2) exploration of the ASI
@@ -414,9 +416,18 @@ def explore_pareto_front_spea2(
     caller-supplied list of already-known-good configurations -- e.g.
     hybrid.py hands in another strategy's final Pareto front here, so SPEA2
     starts refining an already-decent front via crossover/mutation instead of
-    spending early generations rediscovering it from scratch. Every
-    population is seeded with the exact same baseline-then-seed_entities
-    prefix -- no random padding and no truncation to population_size, unlike
+    spending early generations rediscovering it from scratch. seed_entities
+    is split round-robin across the `num_populations` islands (plus the
+    baseline, prepended to every island) rather than handing each island the
+    whole list: since _environmental_selection() is deterministic, giving
+    every island an identical starting population would make their
+    generation-0 archives identical too, and any seed point that's still
+    non-dominated (typically true of the front's own extreme points) would
+    then sit in every archive, unchanged, for the entire run -- an early
+    seed point that later migrates (see p_migration) between islands
+    legitimately ends up in more than one archive, but that should be the
+    exception, not something guaranteed for the whole front on day one. No
+    random padding and no truncation to population_size either way, unlike
     a plain random start. As long as every seed_entities point was already
     evaluated by whatever produced it (true of hybrid.py, which also passes
     initial_cache=<that search's own global_cache>), this makes generation 0
@@ -427,6 +438,24 @@ def explore_pareto_front_spea2(
     population naturally regrows to its usual size on its own -- generation
     0 doesn't need to pre-pad it. Ignored when resuming a saved search, same
     as initial_cache.
+
+    preeval_runs/preeval_invocations attribute Sniper cost that was already
+    spent *before* this call (e.g. cli.py's --preeval-method plackett_burman
+    screen, whose evaluated points are typically handed in via both
+    initial_cache and seed_entities together) into generation 0's own
+    sniper_runs/sniper_invocations and sim_history, even though every
+    seed_entities point lands as a global_cache hit here and so costs no
+    *new* runs of its own. Without this, that screening cost would vanish
+    from sim_history entirely -- generation 0 would report 0 configurations
+    spent despite having started from a fully pre-screened population -- so
+    hv_vs_sims.png's x-axis and the final "Configurations evaluated" total
+    would understate the true cost. This mirrors mesmo.py's own
+    preeval_points accounting for its initial design. Left at 0 (the
+    default) for hybrid.py's own seed_entities use, since there the seeding
+    strategy's cost (e.g. mesmo's) is already tracked in its own resumable
+    state and spliced into the combined plot separately (see
+    hybrid.explore_pareto_front_hybrid) -- attributing it again here would
+    double-count it.
     """
     loaded = Spea2SearchState.load(outputdir)
     resumable = loaded is not None and loaded.matches(reference_config, benchmarks, alpha)
@@ -461,8 +490,17 @@ def explore_pareto_front_spea2(
 
         seed_prefix = [dict(DEFAULTS)] + [dict(p) for p in (seed_entities or [])]
         if seed_entities:
-            print(f"=== Generation 0 (initializing {num_populations} populations "
-                  f"from {len(seed_prefix)} seed entities, no random fill) ===")
+            # Round-robin rather than giving every island the whole list -- see
+            # this function's seed_entities docstring for why identical
+            # generation-0 populations would guarantee duplicate archive entries
+            # across islands.
+            seed_partitions: list[list[dict[str, Any]]] = [[] for _ in range(num_populations)]
+            for i, ent in enumerate(seed_entities):
+                seed_partitions[i % num_populations].append(dict(ent))
+            sizes = ", ".join(str(len(p)) for p in seed_partitions)
+            print(f"=== Generation 0 (initializing {num_populations} populations by splitting "
+                  f"{len(seed_entities)} seed entities across them [{sizes}], plus baseline each, "
+                  f"no random fill) ===")
         else:
             print(f"=== Generation 0 (initializing {num_populations} populations "
                   f"of {population_size} entities) ===")
@@ -477,7 +515,7 @@ def explore_pareto_front_spea2(
                 # so this keeps generation 0 at zero new sniper runs. Reproduction
                 # from generation 1 onward regrows the population to population_size
                 # on its own regardless of this starting size.
-                entity_params = seed_prefix
+                entity_params = [dict(DEFAULTS)] + seed_partitions[pop_idx]
             else:
                 fill = [_random_entity(rng) for _ in range(max(0, population_size - len(seed_prefix)))]
                 entity_params = (seed_prefix + fill)[:population_size]
@@ -493,6 +531,17 @@ def explore_pareto_front_spea2(
                 if point is not None:
                     pop_points.append(point)
             populations.append(pop_points)
+
+        if preeval_runs:
+            # Attribute screening's already-spent cost to generation 0 (see
+            # this function's preeval_runs docstring) -- every seed_entities
+            # point above was a global_cache hit, so runs_this_gen/
+            # invocations_this_gen up to here are 0 despite generation 0
+            # actually starting from a fully pre-screened population.
+            print(f"  (+{preeval_runs} configuration{'s' if preeval_runs != 1 else ''} already "
+                  f"spent by pre-evaluation screening, counted into generation 0)")
+            runs_this_gen += preeval_runs
+            invocations_this_gen += preeval_invocations
 
         archives = [
             _environmental_selection(pop, [], min(archive_size, len(pop)))
