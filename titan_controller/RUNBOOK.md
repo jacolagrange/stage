@@ -92,8 +92,8 @@ degrades gracefully as originally intended. This fix lives in **our own**
 | Your Sniper source (with TAGE), mounted read-write into every job | Titan: `/mnt/perflab/exascience/src/jaco_sniper` — synced from `~/school/stage/snipersim` |
 | Your benchmark source, mounted read-write into every job | Titan: `/mnt/perflab/exascience/src/jaco_benchmarks` — synced from `~/school/stage/asi/benchmarks` |
 | Local job-tracking database (don't edit by hand) | `~/.cache/titan_controller/job_info.sqlite3` |
-| **Actual results** (`sim.out`, `sim.stats.sqlite3`, `power.txt`/`.xml`) | `~/.cache/titan_controller/<cache-hash>/<sim-hash>/<benchmark-name>/<run-idx>/` — see [Where results actually land](#where-results-actually-land) |
-| Summary/tracking file (job IDs, not the actual results) | `host_destination_path` from the experiment JSON, e.g. `/tmp/asi_microbench_run/experiments.json` |
+| **Results** (`sim.out`, `sim.stats.sqlite3`, `power.txt`/`.xml`) | `<host_destination_path>/results/<benchmark-name>/<run-idx>/` — symlinked here by `--collect`, see [Collecting results](#collecting-results) |
+| Local job-tracking metadata (job IDs, not the results themselves) | `<host_destination_path>/experiments.json` |
 
 ## Submitting a job
 
@@ -131,29 +131,22 @@ produced a non-empty `sim.out` or `sim.stats.sqlite3`, and **automatically
 resubmits anything that failed the check**. Re-run `--collect` again after
 a resubmit to pick up the retry.
 
-### Where results actually land
-
-This is the one non-obvious part: `host_destination_path` (e.g.
-`/tmp/asi_microbench_run`) only ever gets an `experiments.json` summary
-file — the real per-benchmark output directories live under the **local
-cache folder**, keyed by a hash you can read out of that summary file:
-
-```bash
-python3 -c "
-import json
-d = json.load(open('/tmp/asi_microbench_run/experiments.json'))
-print(d['benchmark_suites'][0]['host_dst_path'])
-"
-```
-
-Under that path you'll find `<sim-hash>/<benchmark-name>/<run-idx>/`, e.g.:
+Every successfully collected result is symlinked into
+`<host_destination_path>/results/<benchmark-name>/<run-idx>/` — printed at
+the end of a successful collect. So for the example above:
 
 ```
-~/.cache/titan_controller/<hash>/<hash>/ML2/0/sim.out
-~/.cache/titan_controller/<hash>/<hash>/ML2/0/sim.stats.sqlite3
-~/.cache/titan_controller/<hash>/<hash>/ML2/0/power.txt
-~/.cache/titan_controller/<hash>/<hash>/ML2/0/power.xml
+/tmp/asi_microbench_run/results/ML2/0/sim.out
+/tmp/asi_microbench_run/results/ML2/0/sim.stats.sqlite3
+/tmp/asi_microbench_run/results/ML2/0/power.txt
+/tmp/asi_microbench_run/results/ML2/0/power.xml
 ```
+
+(The symlinks point back into a local cache directory keyed by a hash of
+the experiment's mounts — that's what makes re-running an unchanged
+experiment reuse cached results instead of resubmitting. `results/` is
+just a friendly, stable way to reach the same files; you never need to
+touch the cache path directly.)
 
 `sim.out` is the human-readable Sniper summary (IPC, cache/branch-predictor
 stats, DRAM). `power.txt`/`power.xml` are McPAT's area/power estimates.
