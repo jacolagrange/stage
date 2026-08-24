@@ -212,6 +212,15 @@ impl JobHandler{
         let mut hashes = ssh::get_hash_titan(experiment.benchmark_suites.len())?.into_iter();
         println!("Failed or not yet submitted experiment detected... retyring/sending them.");
 
+        // set_task_id/set_status/set_job_id below are all UPDATE-only (see
+        // db.rs) -- they silently affect zero rows unless a row for this
+        // path already exists. add_new_experiment's INSERT OR IGNORE is
+        // what submit_jobs() relies on for that; retry_experiment needs the
+        // same seeding, or every collect-triggered resubmit goes untracked
+        // and the *next* collect sees "never submitted" and resubmits again
+        // even after a genuinely successful run.
+        let _ = cur_db.add_new_experiment(experiment);
+
         for benchmark_suite in &experiment.benchmark_suites {
             self.submit_one_job(benchmark_suite, &hashes.next().unwrap(), cur_db)?;
         }
