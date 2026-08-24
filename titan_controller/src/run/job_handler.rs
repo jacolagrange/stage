@@ -114,10 +114,12 @@ impl JobHandler{
     pub fn collect_jobs(&mut self, experiment_map_file: &Path) -> Result<(), Box<dyn std::error::Error>> {
         let mut experiment = parse_experiment::get_exp_map(&experiment_map_file).unwrap();
         let mut cur_db = ExperimentsDataBase::new()?;
+        let results_dir = Self::results_dir(experiment_map_file);
 
         let titan_job_stats = self.hpc_handler.get_jobs_retry(false, None)?;
         let titan_job_ids: Vec<String> = titan_job_stats.iter().map(|stat| stat.get_job_id()).collect();
 
+        let mut any_new_result = false;
         experiment.for_each_run_path(|path| {
             if Ok(Some(JobStatus::SUBMITTED)) != cur_db.get_status(&path) { return; }
 
@@ -128,6 +130,8 @@ impl JobHandler{
                     match res {
                         Ok(true) => {
                             let _ = cur_db.set_status(&path, &JobStatus::DONE);
+                            let _ = Self::link_result(&results_dir, &path);
+                            any_new_result = true;
                         }
                         Ok(false) | Err(_) => {
                             println!("Could not retreive job_id {}.", &bench_job_task_id);
@@ -137,6 +141,10 @@ impl JobHandler{
                 }
             }
         });
+
+        if any_new_result {
+            println!("Results available under: {}", results_dir.display());
+        }
 
         //remove existing benchmarks
         if ! experiment.keep_state(&cur_db, &[JobStatus::TOSUBMIT, JobStatus::FAILED], &true) {
@@ -163,6 +171,41 @@ impl JobHandler{
             let _ = ssh::clean_dir(&dst_path);
             Ok(false)
         }
+    }
+
+    // `experiment_map_file` is the same `--path` the user passed to --submit/
+    // --collect (their own host_destination_path); results live in a
+    // "results" subdirectory there, mirroring the benchmark/run-index
+    // structure without exposing the internal cache-hash paths at all.
+    fn results_dir(experiment_map_file: &Path) -> PathBuf {
+        let base = if experiment_map_file.file_name().and_then(|f| f.to_str()) == Some(EXPERIMENT_DB_NAME) {
+            experiment_map_file.parent().unwrap_or(experiment_map_file)
+        } else {
+            experiment_map_file
+        };
+        base.join("results")
+    }
+
+    // Symlinks the real (cache-hash-keyed) result directory into
+    // results_dir/<benchmark_name>/<run_idx>/, so results are browsable at
+    // a predictable, human-readable path instead of requiring readers to
+    // parse experiments.json to find them.
+    fn link_result(results_dir: &Path, real_path: &Path) -> std::io::Result<()> {
+        let run_idx = match real_path.file_name() {
+            Some(name) => name,
+            None => return Ok(()),
+        };
+        let benchmark_name = match real_path.parent().and_then(|p| p.file_name()) {
+            Some(name) => name,
+            None => return Ok(()),
+        };
+
+        let link_path = results_dir.join(benchmark_name).join(run_idx);
+        fs::create_dir_all(results_dir.join(benchmark_name))?;
+        if link_path.exists() || link_path.is_symlink() {
+            fs::remove_file(&link_path).or_else(|_| fs::remove_dir_all(&link_path))?;
+        }
+        std::os::unix::fs::symlink(real_path, &link_path)
     }
 
     fn retry_experiment(&self, experiment: &Experiment, cur_db: &mut ExperimentsDataBase) -> Result<(), std::io::Error> {
