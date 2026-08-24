@@ -91,13 +91,13 @@ One or more benchmark commands **must** follow `--`; repeat `-- ./other_bench
 ...` to search across several benchmarks at once (their per-benchmark
 results are geomean'd into one speedup, see [above](#the-asi-metric)). Each
 benchmark's display name is derived from its executable's parent directory
-(matching the `libs/benchmarks/<NAME>/bench` layout).
+(matching the `benchmarks/<NAME>/bench` layout).
 
 Example:
 
 ```
 python asi.py --config nehalem.cfg --strategy spea2 --log --save-plot \
-    -- ./libs/benchmarks/MM/bench arg1
+    -- ./benchmarks/ML2/bench
 ```
 
 ### General flags
