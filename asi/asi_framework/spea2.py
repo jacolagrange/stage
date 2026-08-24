@@ -37,9 +37,7 @@ from .state import (
 )
 
 
-# ---------------------------------------------------------------------------
 # Entity generation and genetic operators
-# ---------------------------------------------------------------------------
 
 def _random_entity(rng: random.Random) -> dict[str, Any]:
     """A fully-specified configuration: one value per PARAM_SPACE parameter
@@ -104,9 +102,7 @@ def _modified_params(params: dict[str, Any]) -> set[str]:
     return {p for p, v in params.items() if v != DEFAULTS[p]}
 
 
-# ---------------------------------------------------------------------------
 # SPEA2 fitness assignment and environmental selection
-# ---------------------------------------------------------------------------
 
 def _normalized_objectives(points: list[DesignPoint]) -> dict[int, tuple[float, float]]:
     """id(point) -> (asi, speedup) min-max normalized to [0, 1] across `points`,
@@ -186,9 +182,7 @@ def _environmental_selection(
     return _truncate(nondominated, archive_size)
 
 
-# ---------------------------------------------------------------------------
 # Mating pool construction (selection + migration)
-# ---------------------------------------------------------------------------
 
 def _binary_tournament(archive: list[DesignPoint], fitness: dict[int, float], rng: random.Random) -> DesignPoint:
     if len(archive) < 2:
@@ -212,11 +206,9 @@ def _make_mating_pool(
     return pool
 
 
-# ---------------------------------------------------------------------------
 # Hypervolume (paper Sec 4.3) -- used both to report progress and to detect
 # convergence ("no more improvement"). hypervolume() itself lives in
 # greedy.py so both strategies (and cli.py) share the same definition.
-# ---------------------------------------------------------------------------
 
 def _has_converged(hv_history: list[float], patience: int, rel_tol: float = 1e-3) -> bool:
     """True if the best hypervolume seen in the last `patience` generations
@@ -229,9 +221,7 @@ def _has_converged(hv_history: list[float], patience: int, rel_tol: float = 1e-3
     return recent_best <= best_before * (1 + rel_tol)
 
 
-# ---------------------------------------------------------------------------
 # Resumable state
-# ---------------------------------------------------------------------------
 
 @dataclass
 class Spea2SearchState:
@@ -333,9 +323,7 @@ class Spea2SearchState:
         return cls.from_dict(raw)
 
 
-# ---------------------------------------------------------------------------
 # Main search loop
-# ---------------------------------------------------------------------------
 
 def _evaluate_entity(
     params: dict[str, Any], out: Path, reference_config: str, sniper: Path, benchmarks: dict[str, list[str]],

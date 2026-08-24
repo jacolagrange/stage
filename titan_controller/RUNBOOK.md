@@ -28,9 +28,9 @@ No `SNIPER_ROOT`/`BENCHMARK_ROOT` env vars needed for this config — see
 
 `titan_controller`'s original design has Titan check out benchmark/sniper
 source itself, from a git branch you name in the experiment JSON
-(`checkout_git_repo` in `script-template/job_docker.sh`). **We don't use
-that anymore for this project.** Two real problems with it, discovered the
-hard way:
+(`checkout_git_repo` in `script-template/job_docker.sh`). **This project
+doesn't use that anymore.** Two real problems with it surfaced during
+testing:
 
 1. Titan's job-execution filesystem (`~/sniper`, `~/benchmarks` under the
    shared `slurmslave` account) is **local to each compute node**

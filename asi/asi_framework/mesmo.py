@@ -48,12 +48,10 @@ from .state import (
 )
 
 
-# ---------------------------------------------------------------------------
 # Candidate generation (mirrors spea2._random_entity/_modified_params --
 # duplicated rather than imported across strategy modules, same as
 # screening._random_entity already does, since both are a handful of lines
 # tied only to config.py's PARAM_SPACE/CONDITIONAL_PARAMS).
-# ---------------------------------------------------------------------------
 
 def _random_entity(rng: random.Random) -> dict[str, Any]:
     """A fully-specified configuration: one value per PARAM_SPACE parameter
@@ -137,10 +135,8 @@ def _candidate_pool(
     return pool
 
 
-# ---------------------------------------------------------------------------
 # Feature encoding: turn a (possibly sparse) params dict into a fixed-length
 # numeric vector the GP kernel operates on.
-# ---------------------------------------------------------------------------
 
 def _feature_names(param_space: dict[str, list]) -> list[tuple[str, Any]]:
     """One (param, value) pair per *non-default* candidate value across all
@@ -169,12 +165,10 @@ def _encode_all(points_params: list[dict[str, Any]], feature_names: list[tuple[s
     return np.stack([_encode(p, feature_names) for p in points_params])
 
 
-# ---------------------------------------------------------------------------
 # Random draws via Python's random.Random (not a second, separately-seeded
 # numpy RNG stream), so a resumed search continues the exact same
 # pseudo-random sequence as the rest of this strategy -- see
 # state.rng_state_to_json, reused unchanged from spea2/greedy.
-# ---------------------------------------------------------------------------
 
 def _rng_array(rng: random.Random, n: int, kind: str) -> np.ndarray:
     if kind == "normal":
@@ -200,9 +194,7 @@ def _safe_cholesky(cov: np.ndarray, jitter: float = 1e-10, max_tries: int = 5) -
     return np.linalg.cholesky(cov + cur * eye)
 
 
-# ---------------------------------------------------------------------------
 # Random-Fourier-Features GP surrogate (one instance per objective).
-# ---------------------------------------------------------------------------
 
 @dataclass
 class _RFFModel:
@@ -305,9 +297,7 @@ def _fit_rff_model(
     )
 
 
-# ---------------------------------------------------------------------------
 # Acquisition function (eq. 4.13): output space entropy search.
-# ---------------------------------------------------------------------------
 
 @dataclass
 class _Sample:
@@ -381,12 +371,10 @@ def _acquisition_scores(
     return total / num_mc_samples
 
 
-# ---------------------------------------------------------------------------
 # Hypervolume-based convergence check (mirrors spea2._has_converged --
 # duplicated for the same reason _random_entity/_modified_params are above).
 # hypervolume() itself lives in greedy.py so every strategy shares one
 # definition.
-# ---------------------------------------------------------------------------
 
 def _has_converged(hv_history: list[float], patience: int, rel_tol: float = 1e-3) -> bool:
     """True if the best hypervolume seen in the last `patience` iterations
@@ -399,9 +387,7 @@ def _has_converged(hv_history: list[float], patience: int, rel_tol: float = 1e-3
     return recent_best <= best_before * (1 + rel_tol)
 
 
-# ---------------------------------------------------------------------------
 # Resumable state
-# ---------------------------------------------------------------------------
 
 @dataclass
 class MesmoSearchState:
@@ -496,9 +482,7 @@ class MesmoSearchState:
         return cls.from_dict(raw)
 
 
-# ---------------------------------------------------------------------------
 # Main search loop
-# ---------------------------------------------------------------------------
 
 def _evaluate_candidate(
     params: dict[str, Any], out: Path, reference_config: str, sniper: Path, benchmarks: dict[str, list[str]],
