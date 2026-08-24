@@ -211,11 +211,27 @@ def compute_baseline(
 
 
 def update_pareto_front(front: list[DesignPoint], points: list[DesignPoint]) -> list[DesignPoint]:
+    """Non-dominated points from front + points, deduplicated by params.
+
+    dominates() is a strict comparison, so two points with identical params
+    never dominate each other -- without an explicit dedup step, the same
+    configuration reaching this function more than once (e.g. spea2.py
+    merging several islands' archives, where the same non-dominated entity
+    can independently survive in more than one archive) would come out the
+    other side as repeated rows on the "Pareto front" instead of one. Keeps
+    whichever copy appears first in front + points; every field of an
+    identical-params point is identical anyway (evaluate_point()'s
+    global_cache means a repeat evaluation always returns the exact same
+    cached DesignPoint), so which copy is kept doesn't matter."""
     all_points = front + points
-    return [
+    non_dominated = [
         p for p in all_points
         if not any(dominates(other, p) for other in all_points if other is not p)
     ]
+    deduped: dict[frozenset, DesignPoint] = {}
+    for p in non_dominated:
+        deduped.setdefault(params_key(p.params), p)
+    return list(deduped.values())
 
 
 def hypervolume(front: list[DesignPoint]) -> float:

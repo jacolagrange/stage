@@ -1,3 +1,47 @@
-**/asi-output/
+# Python
 __pycache__/
 *.pyc
+*.egg-info/
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+
+# ASI framework generated output
+**/asi-output/
+**/iter*_cand*/
+
+# Raw snipersim run artifacts (sim.cfg, sim.out, sim.info, sim.stats.sqlite3,
+# power.py/txt/xml/png, search_state.json) wherever they land as scratch output
+sim.cfg
+sim.out
+sim.info
+sim.stats.sqlite3
+power.py
+power.txt
+power.xml
+power.png
+search_state.json
+app_0.log
+/output/
+asi/tmp_vis/
+
+# LaTeX build artifacts (keep the .tex source and referenced images)
+*.aux
+*.fdb_latexmk
+*.fls
+*.synctex.gz
+*.toc
+asi/results/*.log
+asi/results/*.out
+asi/results/*.pdf
+asi/results2/*.log
+asi/results2/*.out
+asi/results2/*.pdf

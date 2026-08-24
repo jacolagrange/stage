@@ -311,13 +311,17 @@ def _fit_rff_model(
 
 @dataclass
 class _Sample:
-    """Lightweight stand-in for DesignPoint carrying just the two attributes
-    greedy.dominates()/update_pareto_front() actually read -- lets the
-    "cheap MO solver" step (paper Sec 4.1, step 1) reuse that exact same
-    dominance logic on *sampled* (not real) objective values, instead of
-    reimplementing non-domination filtering here."""
+    """Lightweight stand-in for DesignPoint carrying just what
+    greedy.dominates()/update_pareto_front() need -- lets the "cheap MO
+    solver" step (paper Sec 4.1, step 1) reuse that exact same dominance
+    logic on *sampled* (not real) objective values, instead of
+    reimplementing non-domination filtering here. `params` only needs to be
+    unique per pool row (it's fed to update_pareto_front()'s params_key()
+    dedup step) -- these samples aren't real evaluated configs, so the pool
+    index stands in for identity."""
     asi: float
     speedup: float
+    params: dict
 
 
 def _sample_pareto_front(asi_values: np.ndarray, speedup_values: np.ndarray) -> tuple[float, float]:
@@ -328,7 +332,7 @@ def _sample_pareto_front(asi_values: np.ndarray, speedup_values: np.ndarray) -> 
     pool itself, so exhaustive filtering finds exactly the Pareto front
     NSGA-II would converge to, for free). Returns (y*_asi, y*_speedup): the
     per-objective maxima across that sample's Pareto front (eq. 4.9)."""
-    samples = [_Sample(a, s) for a, s in zip(asi_values, speedup_values)]
+    samples = [_Sample(a, s, {"_pool_idx": i}) for i, (a, s) in enumerate(zip(asi_values, speedup_values))]
     front = update_pareto_front([], samples)
     return max(p.asi for p in front), max(p.speedup for p in front)
 
@@ -622,10 +626,19 @@ def explore_pareto_front_mesmo(
             # "initial design" only exists to seed the first GP fit, and
             # screening already provides a far richer, already-paid-for one.
             evaluated: list[DesignPoint] = [baseline] + preeval_points
-            runs_this_iter = 0
-            invocations_this_iter = 0
+            # These points cost no *new* simulations here, but they aren't
+            # free either -- screening already spent one real Sniper run
+            # (len(p.per_benchmark) invocations) per point to produce them.
+            # Counting that cost here (rather than leaving it at 0) is what
+            # makes sim_history/hv_history -- and everything derived from
+            # them, e.g. hv_vs_sims.png and hybrid.py's combined plot --
+            # correctly show the initial Pareto front's hypervolume jump at
+            # the simulation count it actually took, instead of at 0.
+            runs_this_iter = len(preeval_points)
+            invocations_this_iter = sum(len(p.per_benchmark) for p in preeval_points)
             print(f"=== Initial design: baseline + {len(preeval_points)} pre-evaluation "
-                  f"screening point{'s' if len(preeval_points) != 1 else ''} (reused, no new simulations) ===")
+                  f"screening point{'s' if len(preeval_points) != 1 else ''} (reused from screening, "
+                  f"no new simulations this run) ===")
         else:
             print(f"=== Initial design ({num_initial_points} points: baseline + "
                   f"{num_initial_points - 1} random configurations) ===")

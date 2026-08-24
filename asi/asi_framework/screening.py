@@ -49,15 +49,24 @@ Two screening methods are available (--preeval-method):
     >2-valued categorical choice like the predictor type doesn't fit a
     strictly 2-level PB factor, and forcing it into one would mean two of its
     four values (e.g. pentium_m, tage) are never tested at all. Rather than
-    screen them some other way, this method simply never varies them: they're
-    always pruned to their default-only value, with no evaluations spent on
-    them.
+    screen them some other way, this method simply spends no PB evaluations
+    on them -- but leaves them untouched (their full PARAM_SPACE range, not
+    pruned) in the returned param space, so the search strategy that runs
+    afterward is still free to explore branch_predictor_type normally.
 
 Both methods are rough screens, not substitutes for the strategies' own
 on-line sensitivity logic.
 
-Screening is not resumable -- if interrupted, just rerun it.
+A completed screen is cached to outputdir/preeval/screen_cache.json and
+reused automatically the next time screen_param_space() is called with a
+matching config/benchmarks/alpha/method (and, for perceptron, matching
+num_samples/keep_threshold/seed too, since unlike plackett_burman its result
+actually depends on them) -- see cli.py's --preeval-cache flag to reuse that
+cache on a run that doesn't pass --preeval-samples/--preeval-method at all.
+An in-progress screen has no partial checkpoint though: interrupting one
+before it completes still means rerunning the whole thing from scratch.
 """
+import json
 import random
 from pathlib import Path
 from typing import Any
@@ -65,7 +74,7 @@ from typing import Any
 from .config import PARAM_SPACE, DEFAULTS, BRANCH_PREDICTOR_PARAMS, CONDITIONAL_PARAMS
 from .models import DesignPoint
 from .greedy import evaluate_point, params_key, print_evaluated_point, compute_baseline
-from .state import cleanup_dirs
+from .state import cleanup_dirs, write_json_atomic, point_to_dict, point_from_dict
 
 
 def _random_entity(rng: random.Random, param_space: dict[str, list]) -> dict[str, Any]:
@@ -230,6 +239,99 @@ def _pb_entities(
     return entities, levels, design, len(columns)
 
 
+def _screen_cache_path(outputdir: Path) -> Path:
+    return outputdir / "preeval" / "screen_cache.json"
+
+
+def _screen_identity(
+    reference_config: str, benchmarks: dict[str, list[str]], alpha: float, method: str,
+    num_samples: int, keep_threshold: float, seed: int,
+) -> dict:
+    """Identifies a screening run for cache matching. plackett_burman is
+    fully deterministic given just (config, benchmarks, alpha, PARAM_SPACE)
+    -- num_samples/keep_threshold/seed don't affect its result (see
+    screen_param_space's docstring), so they're left out of its identity to
+    avoid spurious cache misses (e.g. --preeval-samples 1 vs. 5, which that
+    method ignores anyway). perceptron's result does depend on those, so
+    they're included for it."""
+    identity = {
+        "reference_config": str(reference_config),
+        "benchmarks": benchmarks,
+        "alpha": alpha,
+        "method": method,
+        "full_param_space": PARAM_SPACE,
+    }
+    if method == "perceptron":
+        identity.update(num_samples=num_samples, keep_threshold=keep_threshold, seed=seed)
+    return identity
+
+
+def _read_screen_cache_file(outputdir: Path) -> dict | None:
+    path = _screen_cache_path(outputdir)
+    if not path.exists():
+        return None
+    return json.loads(path.read_text())
+
+
+def _load_screen_cache(
+    outputdir: Path, identity: dict,
+) -> tuple[dict[str, list], dict[frozenset, DesignPoint]] | None:
+    raw = _read_screen_cache_file(outputdir)
+    if raw is None or raw.get("identity") != identity:
+        return None
+    global_cache = {params_key(x["params"]): point_from_dict(x) for x in raw["global_cache"]}
+    return raw["pruned_param_space"], global_cache
+
+
+def _save_screen_cache(
+    outputdir: Path, identity: dict, pruned_param_space: dict[str, list],
+    global_cache: dict[frozenset, DesignPoint],
+) -> None:
+    path = _screen_cache_path(outputdir)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    write_json_atomic(path, {
+        "identity": identity,
+        "pruned_param_space": pruned_param_space,
+        "global_cache": [point_to_dict(p) for p in global_cache.values()],
+    })
+
+
+def load_screening_cache(
+    outputdir: Path, reference_config: str, benchmarks: dict[str, list[str]], alpha: float,
+) -> tuple[dict[str, list], dict[frozenset, DesignPoint]]:
+    """Load a pruning + evaluated-points cache saved by an earlier
+    screen_param_space() call, without re-screening -- backs cli.py's
+    --preeval-cache flag, for rerunning the search strategy with different
+    strategy flags against an already-computed pruning instead of paying for
+    screening's Sniper runs again. Unlike screen_param_space's own internal
+    cache reuse (which also matches on method/num_samples/keep_threshold/
+    seed), this only checks what must still hold for the pruning to still be
+    valid -- config/benchmarks/alpha/PARAM_SPACE -- since the caller isn't
+    passing a method to compare against.
+
+    Raises FileNotFoundError/ValueError if no matching cache exists: for a
+    flag whose whole point is "reuse the earlier pruning", silently falling
+    back to the unpruned PARAM_SPACE would be a confusing surprise."""
+    path = _screen_cache_path(outputdir)
+    raw = _read_screen_cache_file(outputdir)
+    if raw is None:
+        raise FileNotFoundError(
+            f"--preeval-cache given but no screening cache found at {path} -- "
+            "run once with --preeval-samples/--preeval-method first."
+        )
+    saved = raw["identity"]
+    if (saved["reference_config"] != str(reference_config)
+            or saved["benchmarks"] != benchmarks
+            or saved["alpha"] != alpha
+            or saved["full_param_space"] != PARAM_SPACE):
+        raise ValueError(
+            f"--preeval-cache given but the cache at {path} was computed for a different "
+            "config/benchmarks/alpha/param-space -- rerun screening first."
+        )
+    global_cache = {params_key(x["params"]): point_from_dict(x) for x in raw["global_cache"]}
+    return raw["pruned_param_space"], global_cache
+
+
 def screen_param_space(
     reference_config: str,
     sniper: Path,
@@ -259,7 +361,22 @@ def screen_param_space(
     global_cache (see greedy.params_key). Callers should pass it into the
     chosen strategy's run function so a config re-encountered during the
     actual search -- most likely the baseline itself, since every strategy
-    evaluates it first -- is a cache hit instead of a re-run."""
+    evaluates it first -- is a cache hit instead of a re-run.
+
+    A completed screen is cached to disk and reused here automatically on a
+    later call whose identity matches (see _screen_identity) -- so rerunning
+    the exact same --preeval-* flags (e.g. only to add an unrelated
+    strategy flag) doesn't re-pay for the Sniper runs screening already
+    did."""
+    identity = _screen_identity(reference_config, benchmarks, alpha, method, num_samples, keep_threshold, seed)
+    cached = _load_screen_cache(outputdir, identity)
+    if cached is not None:
+        pruned_param_space, global_cache = cached
+        print(f"=== Pre-evaluation screening: reusing cached result from "
+              f"{_screen_cache_path(outputdir)} ({len(global_cache)} cached point"
+              f"{'s' if len(global_cache) != 1 else ''}) ===\n")
+        return pruned_param_space, global_cache
+
     rng = random.Random(seed)
     pb_levels: dict[str, tuple[Any, Any]] = {}
     pb_design: list[list[int]] = []
@@ -326,34 +443,37 @@ def screen_param_space(
         print(f"  Deleted {n} pre-evaluation output director{'y' if n == 1 else 'ies'}.")
 
     if method == "plackett_burman":
-        return _screen_plackett_burman(
+        pruned_param_space, global_cache = _screen_plackett_burman(
             PARAM_SPACE, pb_levels, pb_effects_asi, pb_effects_speedup,
             pb_dummy_effects_asi, pb_dummy_effects_speedup, pb_successes, global_cache,
         )
-
-    if len(rows) < 2:
+    elif len(rows) < 2:
         print("  Not enough successful samples to screen -- keeping full param space.\n")
-        return PARAM_SPACE, global_cache
-    weights = _train_perceptron(rows, targets, rng)
-    importance: dict[str, float | None] = {
-        param: max((abs(weights[f"{param}={v}"]) for v in values[1:]), default=0.0)
-        for param, values in PARAM_SPACE.items()
-    }
-    max_importance = max((v for v in importance.values() if v is not None), default=0.0)
+        pruned_param_space = PARAM_SPACE
+    else:
+        weights = _train_perceptron(rows, targets, rng)
+        importance: dict[str, float | None] = {
+            param: max((abs(weights[f"{param}={v}"]) for v in values[1:]), default=0.0)
+            for param, values in PARAM_SPACE.items()
+        }
+        max_importance = max((v for v in importance.values() if v is not None), default=0.0)
 
-    print("\n  Parameter importance (perceptron |weight|):")
-    pruned: dict[str, list] = {}
-    order = sorted(PARAM_SPACE, key=lambda p: -(importance[p] if importance[p] is not None else float("inf")))
-    for param in order:
-        values = PARAM_SPACE[param]
-        imp = importance[param]
-        keep = imp is None or max_importance == 0.0 or imp >= keep_threshold * max_importance
-        pruned[param] = values if keep else [values[0]]
-        shown = "n/a (insufficient data)" if imp is None else f"{imp:.4f}"
-        print(f"    {param:<28} {shown:>10}  [{'kept' if keep else 'pruned'}]")
-    print()
+        print("\n  Parameter importance (perceptron |weight|):")
+        pruned: dict[str, list] = {}
+        order = sorted(PARAM_SPACE, key=lambda p: -(importance[p] if importance[p] is not None else float("inf")))
+        for param in order:
+            values = PARAM_SPACE[param]
+            imp = importance[param]
+            keep = imp is None or max_importance == 0.0 or imp >= keep_threshold * max_importance
+            pruned[param] = values if keep else [values[0]]
+            shown = "n/a (insufficient data)" if imp is None else f"{imp:.4f}"
+            print(f"    {param:<28} {shown:>10}  [{'kept' if keep else 'pruned'}]")
+        print()
 
-    return {param: pruned[param] for param in PARAM_SPACE}, global_cache
+        pruned_param_space = {param: pruned[param] for param in PARAM_SPACE}
+
+    _save_screen_cache(outputdir, identity, pruned_param_space, global_cache)
+    return pruned_param_space, global_cache
 
 
 def _screen_plackett_burman(
@@ -383,8 +503,9 @@ def _screen_plackett_burman(
     ranking.
 
     branch_predictor_type and its own predictor-specific knobs are never
-    part of this design (see module docstring) -- they're always pruned to
-    their default-only value here, with no evaluations spent judging them."""
+    part of this design (see module docstring) -- no evaluations are spent
+    judging them, but they're left untouched (full range, not pruned) here so
+    the search strategy that runs afterward can still explore them."""
     branch_predictor_params = {"branch_predictor_type"} | CONDITIONAL_PARAMS
     pruned: dict[str, list] = {p: v for p, v in param_space.items() if p not in branch_predictor_params}
 
@@ -412,6 +533,6 @@ def _screen_plackett_burman(
 
     for param in branch_predictor_params:
         if param in param_space:
-            pruned[param] = [param_space[param][0]]
+            pruned[param] = param_space[param]
 
     return {param: pruned[param] for param in param_space}, global_cache

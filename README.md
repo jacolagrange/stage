@@ -40,6 +40,7 @@ Pareto front instead of a random one. More strategies are planned; see
 - [Strategy: `mesmo`](#strategy-mesmo-bayesian-optimization)
 - [Strategy: `hybrid`](#strategy-hybrid-mesmo--spea2)
 - [Optional pre-processing: parameter screening](#optional-pre-processing-parameter-screening)
+- [Testing without Sniper](#testing-without-sniper)
 - [Extending: adding a new strategy](#extending-adding-a-new-strategy)
 
 ## The ASI metric
@@ -150,9 +151,10 @@ One difference from plain `mesmo`: `--mesmo-patience` still configures the mesmo
 
 ### Pre-evaluation screening flags
 
-Independent of `--strategy` — runs first if `--preeval-samples > 0`, and
-prunes parameters judged unimportant to their default-only value before the
-chosen strategy starts. See [Optional pre-processing](#optional-pre-processing-parameter-screening).
+Independent of `--strategy` — runs first if `--preeval-samples > 0` or
+`--preeval-cache` is passed, and prunes parameters judged unimportant to
+their default-only value before the chosen strategy starts. See
+[Optional pre-processing](#optional-pre-processing-parameter-screening).
 
 | Flag | Default | Meaning |
 |---|---|---|
@@ -160,6 +162,9 @@ chosen strategy starts. See [Optional pre-processing](#optional-pre-processing-p
 | `--preeval-method` | `perceptron` | `perceptron` or `plackett_burman`. |
 | `--preeval-threshold` | 0.1 | Keep a parameter only if its importance is at least this fraction of the most important parameter's (perceptron; also used by plackett_burman's branch-predictor one-at-a-time screen). |
 | `--preeval-seed` | 0 | RNG seed for perceptron sampling (plackett_burman is deterministic). |
+| `--preeval-cache` | off | Reuse a previous `--preeval-samples` run's cached pruning + evaluated points from `outputdir/preeval/screen_cache.json` instead of screening again — lets you rerun the search strategy with different strategy flags without repeating screening's Sniper runs. Errors out if no matching cache exists yet; mutually exclusive with `--preeval-samples` (which already reuses a matching cache automatically, see below). |
+
+A completed screen is itself cached to `outputdir/preeval/screen_cache.json` and reused automatically the next time `--preeval-samples`/`--preeval-method` is run with a matching config/benchmarks/alpha/method (and, for `perceptron`, matching sample count/threshold/seed too, since unlike `plackett_burman` its result depends on them) — so rerunning the same `--preeval-*` flags just to change an unrelated strategy flag doesn't re-pay for screening's own Sniper runs.
 
 ### Output layout
 
@@ -224,8 +229,14 @@ new one doesn't mean reimplementing any of this.
   pre-evaluation screening, via `initial_cache`), and only if it's a miss
   does it call `runner.run()` for every benchmark, then compute `asi`
   (`calculate_asi()`) and `speedup` (`geomean()`) against the baseline.
-  Returns `(point, ran_sniper)` so callers can count real Sniper executions
-  separately from cache hits.
+  Returns `(point, ran_sniper, sniper_invocations)`: `ran_sniper` is `False`
+  only on a cache hit, letting callers count *configurations evaluated*
+  (what a search iteration/generation actually spends its budget on) apart
+  from cache hits; `sniper_invocations` is the raw count of literal Sniper
+  subprocess calls made for this point (`0` on a cache hit, otherwise one per
+  benchmark) — `len(benchmarks)` times larger than the `ran_sniper` count
+  whenever more than one benchmark is given, used only for the final "Total
+  sniper invocations" summary rather than the per-iteration budgeting.
 - **`config_builder.build_runtime_config()`** / **`runner.run()`** — the
   actual simulation call: translates a `params` dict into Sniper
   command-line override flags (`SNIPER_KNOB_MAP`, plus
@@ -235,7 +246,10 @@ new one doesn't mean reimplementing any of this.
   (`Time (ns)`) out of the run's output directory.
 - **Pareto dominance & hypervolume** — `dominates(a, b)` (maximizing both ASI
   and speedup, strictly better in at least one), `update_pareto_front(front,
-  points)` (non-domination filter over `front + points`), and
+  points)` (non-domination filter over `front + points`, deduplicated by
+  `params_key()` — needed because e.g. spea2 merges several islands'
+  archives, where the same non-dominated entity can independently survive in
+  more than one), and
   `hypervolume(front)` (2D area dominated by the front relative to the origin
   `(ASI=0, speedup=0)` — the shared scale every strategy reports progress on
   and, for spea2/mesmo, the signal their convergence checks watch). A point
@@ -600,16 +614,25 @@ running start instead of a blank slate.
      something MESMO already evaluated, is served from cache instead of
      re-simulated.
    - `seed_entities=<MESMO's final Pareto front's params>` — this is the
-     part that actually changes what SPEA2 evaluates, and the one small
-     addition made to `spea2.py` for this strategy: every population's
-     generation 0 is now `[baseline] + seed_entities`, padded with the usual
-     `_random_entity()` draws if that's shorter than `--population-size`
-     (truncated if longer), instead of `[baseline] +
-     (population_size - 1) random draws`. From generation 1 onward, SPEA2
-     proceeds completely unmodified — mating pool, crossover, mutation,
-     environmental selection all work on whatever population resulted from
-     that seeded generation 0, exactly as if a human had hand-picked
-     generation 0's starting entities.
+     part that actually changes what SPEA2 evaluates, and the main addition
+     made to `spea2.py` for this strategy: `seed_entities` is split
+     round-robin across the populations (plus the baseline, prepended to
+     every population), with no random padding and no truncation to
+     `--population-size`, instead of `[baseline] + (population_size - 1)
+     random draws`. Round-robin rather than handing every population the
+     whole list — since `_environmental_selection()` is deterministic,
+     identical starting populations would give every population an
+     identical generation-0 archive too, so any seed point that's still
+     non-dominated (typically true of the front's own extreme points) would
+     sit in every archive unchanged for the whole run instead of migration
+     (`p_migration`) between populations being the exception rather than a
+     day-one guarantee. As long as every seed point was already evaluated by
+     whatever produced it (true here, since `initial_cache` is MESMO's own
+     `global_cache`), generation 0 costs zero new Sniper runs. From
+     generation 1 onward, SPEA2 proceeds completely unmodified — mating
+     pool, crossover, mutation, environmental selection all work on whatever
+     populations resulted from that seeded generation 0, exactly as if a
+     human had hand-picked generation 0's starting entities.
 4. Returns SPEA2's final Pareto front — the same return type/shape every
    other strategy returns, so `cli.py`'s final reporting/plotting needed no
    changes to support `hybrid`.
@@ -634,9 +657,11 @@ mesmo` and then `--strategy spea2` by hand against two different
 
 ## Optional pre-processing: parameter screening
 
-**File:** `screening.py`, entry point `screen_param_space()`. Triggered by
-`--preeval-samples > 0`, runs once before whichever `--strategy` was chosen
-and prunes parameters judged unimportant down to their default-only value
+**File:** `screening.py`, entry points `screen_param_space()` and
+`load_screening_cache()` (the latter backs `--preeval-cache`, see below).
+Triggered by `--preeval-samples > 0` or `--preeval-cache`, runs once before
+whichever `--strategy` was chosen and prunes parameters judged unimportant
+down to their default-only value
 (`{param: [DEFAULTS[param]]}`), so the search strategy never spends
 evaluations varying them. Not resumable — if interrupted, just rerun it.
 This is a rough screen, not a substitute for greedy's own online sensitivity
@@ -692,18 +717,60 @@ Rigorous Approach for Improving Simulation Methodology"* (Section 2).
    real effect.
 5. `branch_predictor_type` and its own predictor-specific knobs can't be
    represented as a two-level factor (they're a >2-valued categorical
-   choice) and are excluded from the design entirely — always pruned to
-   default-only in this mode, with no evaluations spent judging them.
+   choice) and are excluded from the design entirely — no evaluations are
+   spent judging them, but they're also left untouched (full range, not
+   pruned) in the returned param space, so the search strategy that runs
+   afterward can still explore them normally.
 
 `screen_param_space()` orchestrates both methods: it computes (or reuses) the
-baseline, runs the samples/design, and returns
-`(pruned_param_space, global_cache)`. `cli.py` then monkeypatches the pruned
-space into `greedy`/`spea2`/`mesmo`'s own module-level `PARAM_SPACE` (each
-strategy module imports its own copy at import time, so patching
-`config.PARAM_SPACE` alone wouldn't reach them) and forwards the populated
-cache as `initial_cache`, so the baseline (and any screening sample the
-search happens to re-encounter, most commonly the baseline itself) is a cache
-hit instead of a re-run.
+baseline, runs the samples/design (or reuses a previously cached result — see
+`--preeval-cache` above), and returns `(pruned_param_space, global_cache)`.
+`cli.py` then monkeypatches the pruned space into `greedy`/`spea2`/`mesmo`'s
+own module-level `PARAM_SPACE` (each strategy module imports its own copy at
+import time, so patching `config.PARAM_SPACE` alone wouldn't reach them) and
+forwards the populated cache as `initial_cache`, so the baseline (and any
+screening sample the search happens to re-encounter, most commonly the
+baseline itself) is a cache hit instead of a re-run.
+
+If the chosen strategy accepts `seed_entities` (currently only `spea2`),
+`cli.py` also hands it every non-baseline point screening evaluated —
+otherwise those already-paid-for evaluations would sit unused in
+`initial_cache` while generation 0 draws a fresh random population anyway
+(the same idea as `hybrid.py` seeding `spea2`'s generation 0 from `mesmo`'s
+final front, see [Strategy: `hybrid`](#strategy-hybrid-mesmo--spea2)). It
+also forwards `preeval_runs`/`preeval_invocations` — the number of
+configurations/Sniper invocations screening already spent — so that cost
+lands in generation 0's own `sniper_runs` bookkeeping instead of vanishing
+from `hv_vs_sims.png`'s x-axis and the final "Configurations evaluated"
+total.
+
+## Testing without Sniper
+
+**File:** `tests/test.py`. A standalone harness for `greedy.py`'s
+sensitivity/freezing/probation logic that never touches Sniper or McPAT, so
+it runs in seconds and can be iterated on without a working simulator setup.
+
+1. `generate_true_effects()` randomly decides, per parameter in a small test
+   `PARAM_SPACE`, whether it has a "real" effect on area/power (and if so,
+   draws log-uniform coefficients) or is a true null — so which parameters
+   matter is picked by a seed (`TRUE_EFFECTS_SEED`) rather than hand-picked,
+   letting the same harness stress-test the freeze/probation logic against
+   different landscapes just by changing it.
+2. `fake_run()` is a drop-in replacement for `runner.run()`: instead of
+   invoking Sniper, it reads back the parameter values actually written into
+   the generated `.cfg` file (`parse_cfg_values()`) or the `design_knobs`
+   dict directly, computes `area`/`power` from `BASE_AREA`/`BASE_POWER` plus
+   each varied parameter's true coefficient times its deviation from
+   default, adds Gaussian noise (`NOISE_STD`) to mimic simulation
+   measurement variance, and returns a synthetic `(area, power, time)`.
+3. `main()` monkeypatches `greedy.run` (the name greedy.py calls, imported
+   via `from .runner import run`) with `fake_run`, overrides `greedy.PARAM_SPACE`/
+   `greedy.DEFAULTS` with the test space, then calls
+   `explore_pareto_front_with_sensitivity()` exactly like a real run would.
+   Since the ground truth is known up front, the printed final Pareto front
+   can be checked by eye: parameters with a real effect should stay active
+   across iterations, while null parameters should freeze within the first
+   couple of iterations instead of continuing to be searched.
 
 ## Extending: adding a new strategy
 
