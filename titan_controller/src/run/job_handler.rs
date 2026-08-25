@@ -53,10 +53,14 @@ impl JobHandler{
 
         if ! dry_run {
             //Obtain a unique hash from the server
-            let mut hashes = ssh::get_hash_titan(experiment.benchmark_suites.len())?.into_iter();
+            let expected_hashes = experiment.benchmark_suites.len();
+            let mut hashes = ssh::get_hash_titan(expected_hashes)?.into_iter();
 
             for benchmark_suite in &mut experiment.benchmark_suites {
-                self.submit_one_job(benchmark_suite, &hashes.next().unwrap(), &mut cur_db)?;
+                let hash = hashes.next().ok_or_else(|| format!(
+                    "get_hash_titan returned fewer hashes than benchmark suites ({expected_hashes})"
+                ))?;
+                self.submit_one_job(benchmark_suite, &hash, &mut cur_db)?;
             }
             let _ = cur_db.set_experiment_status(&experiment, &JobStatus::SUBMITTED);
         }
@@ -193,18 +197,35 @@ impl JobHandler{
     // results_dir/<benchmark_name>/<run_idx>/, so results are browsable at
     // a predictable, human-readable path instead of requiring readers to
     // parse experiments.json to find them.
+    // real_path is <cache_dir>/<sim_hash>/<benchmark_name>/<run_idx> --
+    // sim_hash (one Sniper-parameter combination's hash, see
+    // get_hash_sniper_config) has to be part of the friendly link path too,
+    // not just benchmark_name/run_idx: a batch experiment with several
+    // sniper_parameters entries (e.g. one per design point in a search
+    // generation) evaluates every entity against the *same* benchmark
+    // names, so benchmark_name/run_idx alone collides -- every entity's
+    // link would overwrite the last one's.
     fn link_result(results_dir: &Path, real_path: &Path) -> std::io::Result<()> {
         let run_idx = match real_path.file_name() {
             Some(name) => name,
             None => return Ok(()),
         };
-        let benchmark_name = match real_path.parent().and_then(|p| p.file_name()) {
+        let benchmark_dir = match real_path.parent() {
+            Some(p) => p,
+            None => return Ok(()),
+        };
+        let benchmark_name = match benchmark_dir.file_name() {
+            Some(name) => name,
+            None => return Ok(()),
+        };
+        let sim_hash = match benchmark_dir.parent().and_then(|p| p.file_name()) {
             Some(name) => name,
             None => return Ok(()),
         };
 
-        let link_path = results_dir.join(benchmark_name).join(run_idx);
-        fs::create_dir_all(results_dir.join(benchmark_name))?;
+        let link_dir = results_dir.join(sim_hash).join(benchmark_name);
+        let link_path = link_dir.join(run_idx);
+        fs::create_dir_all(&link_dir)?;
         if link_path.exists() || link_path.is_symlink() {
             fs::remove_file(&link_path).or_else(|_| fs::remove_dir_all(&link_path))?;
         }
@@ -225,7 +246,11 @@ impl JobHandler{
         let _ = cur_db.add_new_experiment(experiment);
 
         for benchmark_suite in &experiment.benchmark_suites {
-            self.submit_one_job(benchmark_suite, &hashes.next().unwrap(), cur_db)?;
+            let hash = hashes.next().ok_or_else(|| std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "get_hash_titan returned fewer hashes than benchmark suites",
+            ))?;
+            self.submit_one_job(benchmark_suite, &hash, cur_db)?;
         }
         Ok(())
     }

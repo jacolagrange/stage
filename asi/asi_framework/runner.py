@@ -54,6 +54,26 @@ def run(
         print(stderr_log)
         raise exc_cls(msg)
 
+    return parse_sniper_output(outputdir, fail=fail)
+
+
+def parse_sniper_output(outputdir: Path, fail=None) -> tuple[float, float, float]:
+    """
+    Parses a completed Sniper/McPAT run's output directory into
+    (area_mm2, peak_power_W, time_ns) -- the same file formats regardless of
+    whether the run happened via run() above (a local subprocess) or was
+    collected back from a Titan job (titan_batch.py), so both share this one
+    parser instead of drifting apart.
+
+    fail: optional (exc_cls, msg) -> NoReturn callback for a caller that
+    wants extra context (e.g. run()'s stdout/stderr dump) on parse failure;
+    defaults to just `raise exc_cls(msg)`.
+    """
+    outputdir = Path(outputdir)
+    if fail is None:
+        def fail(exc_cls, msg):
+            raise exc_cls(msg)
+
     # --- Parse power.txt (McPAT output) ---
     power_file = outputdir / "power.txt"
     if not power_file.exists():

@@ -10,6 +10,18 @@ pub fn send_command(command: &str) -> Result<(String, String), std::io::Error>{
     if stderr.len() > 0 {
         eprintln!("{:?} {:?}", stdout, stderr);
     }
+    // ssh exiting non-zero (auth failure, network drop, remote command
+    // failure, ...) must not look identical to "command ran, produced no
+    // output" -- callers otherwise silently proceed on empty/partial data
+    // (e.g. get_hash_titan() below returning an empty Vec instead of an
+    // error), surfacing as a confusing panic far from the real cause
+    // instead of a clean error naming the actual ssh failure.
+    if !output.status.success() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("ssh command failed (exit {}): {}", output.status, stderr.trim()),
+        ));
+    }
     Ok((stdout, stderr))
 }
 
@@ -39,13 +51,18 @@ pub fn get_files(src_path: &str, dst_path: &str) -> Result<(), std::io::Error> {
 }
 
 pub fn untar(src_path: &Path, dst_path: &Path, delete_tar: bool) -> Result<(), std::io::Error> {
-    let _output = Command::new("tar")
+    let output = Command::new("tar")
         .arg("-xzf")
         .arg(src_path)
         .arg("-C")
         .arg(dst_path)
         .output()?;
-    //println!("{:?} {:?}", String::from_utf8(_output.stdout).unwrap(), String::from_utf8(_output.stderr).unwrap());
+    if !output.status.success() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("tar extraction of {} failed (exit {}): {}", src_path.display(), output.status, String::from_utf8_lossy(&output.stderr).trim()),
+        ));
+    }
     if delete_tar {
         let _output2 = Command::new("rm").arg(src_path).output()?;
     }

@@ -92,7 +92,7 @@ degrades gracefully as originally intended. This fix lives in **our own**
 | Your Sniper source (with TAGE), mounted read-write into every job | Titan: `/mnt/perflab/exascience/src/jaco_sniper` — synced from `~/school/stage/snipersim` |
 | Your benchmark source, mounted read-write into every job | Titan: `/mnt/perflab/exascience/src/jaco_benchmarks` — synced from `~/school/stage/asi/benchmarks` |
 | Local job-tracking database (don't edit by hand) | `~/.cache/titan_controller/job_info.sqlite3` |
-| **Results** (`sim.out`, `sim.stats.sqlite3`, `power.txt`/`.xml`) | `<host_destination_path>/results/<benchmark-name>/<run-idx>/` — symlinked here by `--collect`, see [Collecting results](#collecting-results) |
+| **Results** (`sim.out`, `sim.stats.sqlite3`, `power.txt`/`.xml`) | `<host_destination_path>/results/<sniper-config-hash>/<benchmark-name>/<run-idx>/` — symlinked here by `--collect`, see [Collecting results](#collecting-results) |
 | Local job-tracking metadata (job IDs, not the results themselves) | `<host_destination_path>/experiments.json` |
 
 ## Submitting a job
@@ -132,21 +132,26 @@ resubmits anything that failed the check**. Re-run `--collect` again after
 a resubmit to pick up the retry.
 
 Every successfully collected result is symlinked into
-`<host_destination_path>/results/<benchmark-name>/<run-idx>/` — printed at
-the end of a successful collect. So for the example above:
+`<host_destination_path>/results/<sniper-config-hash>/<benchmark-name>/<run-idx>/`
+— printed at the end of a successful collect. So for the example above:
 
 ```
-/tmp/asi_microbench_run/results/ML2/0/sim.out
-/tmp/asi_microbench_run/results/ML2/0/sim.stats.sqlite3
-/tmp/asi_microbench_run/results/ML2/0/power.txt
-/tmp/asi_microbench_run/results/ML2/0/power.xml
+/tmp/asi_microbench_run/results/4376462735085201861/ML2/0/sim.out
+/tmp/asi_microbench_run/results/4376462735085201861/ML2/0/sim.stats.sqlite3
+/tmp/asi_microbench_run/results/4376462735085201861/ML2/0/power.txt
+/tmp/asi_microbench_run/results/4376462735085201861/ML2/0/power.xml
 ```
 
 (The symlinks point back into a local cache directory keyed by a hash of
 the experiment's mounts — that's what makes re-running an unchanged
 experiment reuse cached results instead of resubmitting. `results/` is
 just a friendly, stable way to reach the same files; you never need to
-touch the cache path directly.)
+touch the cache path directly. The hash directory is there because
+[batch experiments](#submitting-a-batch-of-asi-design-points) evaluate
+several distinct Sniper configurations against the *same* benchmark names
+— `<benchmark>/<run-idx>` alone isn't unique across those, only
+`<hash>/<benchmark>/<run-idx>` is. With a `find` you rarely need to know the
+hash up front: `find /tmp/asi_microbench_run/results -name sim.out`.)
 
 `sim.out` is the human-readable Sniper summary (IPC, cache/branch-predictor
 stats, DRAM). `power.txt`/`power.xml` are McPAT's area/power estimates.
@@ -205,6 +210,110 @@ Notes:
   for the full set this cluster's Sniper build understands.
 - `mix: "single"` varies one parameter at a time from a baseline; `"mix":
   "product"` sweeps the full cross-product instead.
+
+## Submitting a batch of ASI design points
+
+Running the ASI framework's search strategies (`greedy`/`spea2`/`mesmo`)
+locally evaluates one design point at a time — call Sniper, block, get a
+result, decide the next point. That's fine locally, but SPEA2's whole
+generation (or greedy's per-round search set) is naturally a *batch* of
+independent points, and submitting them together as one Titan job array
+lets Slurm actually run them in parallel across compute nodes instead of
+one at a time.
+
+**File:** `asi/asi_framework/titan_batch.py`, function
+`entities_to_titan_experiment()`.
+
+### How it avoids needing a new titan_controller feature
+
+A batch is a list of (possibly sparse) `params` dicts — the exact same
+shape `evaluate_point()`/`runner.run()` already take locally, e.g. a SPEA2
+population before evaluation. The obvious way to express "N specific,
+already-chosen configurations" doesn't fit titan_controller's existing
+`"mix": "product"` (full cross-product of value lists) or `"single"` (vary
+one parameter at a time) — neither generates an arbitrary, non-combinatorial
+list of points.
+
+The fix needs no new mix mode: `sniper_parameters.parameters` is already an
+*array* of blocks, and every block's generated combinations get merged into
+one flat list. Give **each entity its own block**, `"mix": "product"`, with
+every value list holding exactly one value — the product of one-element
+lists is just that one combination, so N entities become N blocks, each one
+exact configuration. Verified empirically (`--dry`, inspecting the generated
+`<ARGUMENTS>` per task) before trusting it — see the git history for the
+test that proved it.
+
+What actually varies per entity is a single `{overrides}` placeholder, whose
+value is the *entire* Sniper override-flag string for that entity — built by
+calling `config_builder.build_runtime_config()` directly, the exact function
+`runner.run()` already uses for local runs. This is deliberate: that
+function has real conditional logic (branch-predictor-type-specific knobs,
+ROB knobs only supplied when relevant, defaults filled in for a sparse
+dict) that a static per-key template can't safely replicate. Reusing it
+directly means the Titan path can never drift from local behavior — one
+flag string per entity means it doesn't need to.
+
+**One correction from the ASI framework's own convention**: `runner.py`
+builds override flags as `-c path=value` (not `-g`, which is what
+`script-template/experiment_template.json`'s generic example uses) — verify
+which one applies before assuming; they aren't interchangeable.
+
+### Usage
+
+```python
+from asi_framework.titan_batch import entities_to_titan_experiment
+import json
+
+entities = [point.params for point in population]  # e.g. one SPEA2 generation
+experiment = entities_to_titan_experiment(
+    entities,
+    reference_config="nehalem.cfg",
+    benchmark_json_path="./c_bench.json",
+    host_destination_path="/tmp/asi_gen_0",  # give each batch its own path
+)
+json.dump(experiment, open("gen_0.json", "w"))
+```
+
+Then submit/poll/collect exactly like any other experiment (see
+[Submitting a job](#submitting-a-job) /
+[Collecting results](#collecting-results)) — `--collect` symlinks every
+entity's result under `results/<sniper-config-hash>/<benchmark-name>/<run-idx>/`,
+one sub-tree per entity, so a batch of N entities × M benchmarks resolves
+to N distinct hash directories, each containing that entity's M benchmark
+results. Parse them back with
+`asi_framework.runner.parse_sniper_output(outputdir)` — the exact same
+parser `runner.run()` uses locally, so a Titan-collected result and a local
+one produce identical `(area, peak_power, time_ns)` tuples.
+
+### No "done" signal — poll lightly, don't busy-loop
+
+titan_controller has no push notification of its own — no webhook, no
+callback. The practical options, roughly in order of effort:
+
+1. **Sparse polling** — check `--list job` every minute or so, sleeping
+   between checks. This costs essentially nothing; a script asleep 59
+   seconds out of 60 isn't "tying up" anything meaningfully.
+2. **Slurm's own email notification** (`--mail-type=END
+   --mail-user=you@ugent.be` added to the job template) — a real push, but
+   to a human, not something that can automatically trigger submitting the
+   next generation on its own.
+3. **Run the orchestration loop on Titan itself** instead of your laptop —
+   the actual answer if you want your laptop uninvolved after kickoff, but
+   real infrastructure work (something needs to run persistently on Titan's
+   login node or as its own job), not a quick addition.
+
+Start with (1) to get a working batch-generation loop end to end; only move
+to (3) once that's proven and the extra infrastructure is worth it.
+
+### What this does *not* do yet
+
+`entities_to_titan_experiment()` and the collection path above are a
+general "run a batch of entities on Titan, get raw measurements back"
+utility. Rewiring `spea2.py`/`greedy.py`/`mesmo.py`'s own search loops to
+actually call this instead of `evaluate_point()`'s one-at-a-time local
+calls is a separate, bigger change — each strategy's loop structure,
+caching, and resumability all currently assume synchronous one-point-at-a-time
+evaluation. That rewiring is future work, not done here.
 
 ## Adding or modifying a benchmark
 
