@@ -5,19 +5,12 @@ from typing import Any
 
 @dataclass
 class DesignPoint:
-    """One evaluated design point.
-
-    A point may be evaluated against several benchmarks at once (see
-    greedy.py's evaluate_point); area/peak_power/time are then the mean
-    across benchmarks and speedup is their geometric mean, while
-    per_benchmark keeps each benchmark's own {time, speedup} so a config
-    that trades a loss on one workload for a bigger win on another is
-    still inspectable rather than only visible as a blended number.
-    """
+    """One evaluated design point; area/peak_power/time are means across
+    benchmarks, per_benchmark keeps each benchmark's own values."""
     params: dict[str, Any]
-    area: float                    # mm^2
-    peak_power: float              # W
-    time: float                    # ns
+    area: float
+    peak_power: float
+    time: float
     asi: float = 0.0
     speedup: float = 0.0
     modified_params: set[str] = field(default_factory=set)

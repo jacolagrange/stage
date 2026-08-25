@@ -1,21 +1,5 @@
-"""
-COLE-style multi-objective evolutionary search strategy.
-
-Adapted from Hoste & Eeckhout, "COLE: Compiler Optimization Level
-Exploration" (CGO'08), which itself builds on SPEA2 (Zitzler, Laumanns &
-Thiele, 2001). COLE applied SPEA2 to compiler-flag selection (two objectives:
-execution time, compilation time); here the same SPEA2 mechanism is applied
-to Sniper microarchitecture parameters (two objectives: ASI, speedup).
-
-Unlike the greedy strategy in greedy.py -- which starts from the baseline and
-grows the design space one parameter at a time -- SPEA2 samples full
-multi-dimensional configurations ("entities") directly from the whole
-PARAM_SPACE and refines them generation over generation via selection,
-crossover and mutation. See explore_pareto_front_spea2()'s docstring for the
-per-generation algorithm, and the accompanying conversation writeup for the
-full explanation of each step and the design decisions made where the paper's
-description was ambiguous for this domain.
-"""
+"""COLE-style multi-objective evolutionary (SPEA2) search strategy. See
+README's "Strategy: spea2" section."""
 import random
 from dataclasses import dataclass
 from pathlib import Path
@@ -30,6 +14,7 @@ from .greedy import (
     evaluate_point, dominates, update_pareto_front, print_pareto_table,
     print_evaluated_point, params_key, compute_baseline, hypervolume,
 )
+from . import titan_batch
 from .plot import plot_pareto_front_on_asi, plot_pareto_fronts_on_asi, plot_hv_vs_simulations
 from .state import (
     point_to_dict, point_from_dict, state_path, write_json_atomic, read_raw_state,
@@ -37,14 +22,9 @@ from .state import (
 )
 
 
-# Entity generation and genetic operators
-
 def _random_entity(rng: random.Random) -> dict[str, Any]:
     """A fully-specified configuration: one value per PARAM_SPACE parameter
-    that's relevant to the randomly chosen branch predictor type. Predictor-
-    specific knobs outside that type (e.g. nn_learning_rate when the type is
-    pentium_m) are never read by Sniper, so they're left out rather than
-    varied for no functional effect -- see BRANCH_PREDICTOR_PARAMS."""
+    relevant to the randomly chosen branch predictor type."""
     entity = {
         param: rng.choice(values)
         for param, values in PARAM_SPACE.items()
@@ -56,11 +36,7 @@ def _random_entity(rng: random.Random) -> dict[str, Any]:
 
 
 def _mutate(entity: dict[str, Any], rng: random.Random) -> dict[str, Any]:
-    """Randomly reassign a single parameter to one of its candidate values,
-    restricted to parameters relevant to the entity's current branch
-    predictor type (see active_params()). Mutating branch_predictor_type
-    itself drops the old type's now-irrelevant predictor-specific knobs and
-    draws fresh values for the new type's own knobs."""
+    """Randomly reassign a single active parameter to a new candidate value."""
     child = dict(entity)
     bp_type = entity.get("branch_predictor_type", DEFAULTS.get("branch_predictor_type", DEFAULT_BRANCH_PREDICTOR_TYPE))
     param = rng.choice(sorted(active_params(PARAM_SPACE, bp_type)))
@@ -75,16 +51,8 @@ def _mutate(entity: dict[str, Any], rng: random.Random) -> dict[str, Any]:
 
 def _crossover(a: dict[str, Any], b: dict[str, Any], rng: random.Random) -> dict[str, Any]:
     """Uniform crossover: each always-relevant parameter independently comes
-    from parent a or b, including branch_predictor_type itself. That type's
-    own predictor-specific knobs are then filled in from whichever parent(s)
-    actually used that type (uniformly, if both do), or drawn fresh if
-    neither parent did -- so e.g. crossing an "nn" parent with a "pentium_m"
-    parent never leaves a leftover/irrelevant learning_rate on a child that
-    ends up pentium_m.
-    Parents may be "sparse" (e.g. the seeded baseline entity is {}, meaning
-    "use the reference config's own value for every parameter") -- .get()
-    with the DEFAULTS fallback treats a missing key the same way the rest of
-    the codebase does."""
+    from parent a or b; the resulting type's own knobs are filled in from
+    whichever parent(s) used that type, or drawn fresh otherwise."""
     child = {
         param: (a.get(param, DEFAULTS[param]) if rng.random() < 0.5 else b.get(param, DEFAULTS[param]))
         for param in PARAM_SPACE if param not in CONDITIONAL_PARAMS
@@ -101,8 +69,6 @@ def _crossover(a: dict[str, Any], b: dict[str, Any], rng: random.Random) -> dict
 def _modified_params(params: dict[str, Any]) -> set[str]:
     return {p for p, v in params.items() if v != DEFAULTS[p]}
 
-
-# SPEA2 fitness assignment and environmental selection
 
 def _normalized_objectives(points: list[DesignPoint]) -> dict[int, tuple[float, float]]:
     """id(point) -> (asi, speedup) min-max normalized to [0, 1] across `points`,
@@ -144,14 +110,8 @@ def _spea2_fitness(pool: list[DesignPoint]) -> tuple[dict[int, float], dict[int,
 
 
 def _truncate(nondominated: list[DesignPoint], size: int) -> list[DesignPoint]:
-    """SPEA2's truncation operator: while there are more non-dominated points
-    than fit in the archive, repeatedly drop the one closest to its nearest
-    neighbor (the most "crowded" point), so the survivors spread out to cover
-    the objective-value range as widely as possible -- this is the mechanism
-    behind the paper's "the archive selects the entities that cover the
-    objective function ranges as widely as possible." Ties are broken in
-    favor of dropping the point with *more* non-default parameters, matching
-    the paper's preference for simpler configurations."""
+    """Repeatedly drop the most crowded point until size non-dominated
+    points remain, so survivors spread out across the objective range."""
     pool = list(nondominated)
     while len(pool) > size:
         obj = _normalized_objectives(pool)
@@ -182,8 +142,6 @@ def _environmental_selection(
     return _truncate(nondominated, archive_size)
 
 
-# Mating pool construction (selection + migration)
-
 def _binary_tournament(archive: list[DesignPoint], fitness: dict[int, float], rng: random.Random) -> DesignPoint:
     if len(archive) < 2:
         return archive[0]
@@ -206,22 +164,14 @@ def _make_mating_pool(
     return pool
 
 
-# Hypervolume (paper Sec 4.3) -- used both to report progress and to detect
-# convergence ("no more improvement"). hypervolume() itself lives in
-# greedy.py so both strategies (and cli.py) share the same definition.
-
 def _has_converged(hv_history: list[float], patience: int, rel_tol: float = 1e-3) -> bool:
-    """True if the best hypervolume seen in the last `patience` generations
-    hasn't meaningfully exceeded the best hypervolume from everything before
-    that window -- i.e. the overall Pareto frontier has stopped improving."""
+    """True if hypervolume hasn't meaningfully improved in the last patience generations."""
     if len(hv_history) <= patience:
         return False
     best_before = max(hv_history[:-patience])
     recent_best = max(hv_history[-patience:])
     return recent_best <= best_before * (1 + rel_tol)
 
-
-# Resumable state
 
 @dataclass
 class Spea2SearchState:
@@ -247,13 +197,6 @@ class Spea2SearchState:
     param_space: dict[str, list]
 
     def matches(self, reference_config: str, benchmarks: dict[str, list[str]], alpha: float) -> bool:
-        """Also checked against the live PARAM_SPACE: only generation 0 samples
-        branch_predictor_type (and every other parameter) uniformly at random
-        across the whole space -- every later generation only reaches a value
-        via mutation of an existing population, which is far too rare to
-        introduce a brand-new parameter/value (e.g. a newly added
-        branch_predictor_type) in any reasonable number of generations. So a
-        PARAM_SPACE change must restart from generation 0, not resume."""
         return (
             self.reference_config == str(reference_config)
             and self.benchmarks == benchmarks
@@ -323,8 +266,6 @@ class Spea2SearchState:
         return cls.from_dict(raw)
 
 
-# Main search loop
-
 def _evaluate_entity(
     params: dict[str, Any], out: Path, reference_config: str, sniper: Path, benchmarks: dict[str, list[str]],
     baseline: DesignPoint, alpha: float, global_cache: dict[frozenset, DesignPoint], prefix: str,
@@ -333,6 +274,87 @@ def _evaluate_entity(
     if point is not None:
         print_evaluated_point(params, point, prefix=prefix)
     return point, ran, invocations
+
+
+def _titan_config(
+    titan: bool, outputdir: Path, titan_benchmark_json: str | None, titan_dir: str | None,
+    titan_host_dir: str | None, titan_sniper_mount: str, titan_benchmarks_mount: str,
+    titan_poll_interval: float,
+) -> dict[str, Any] | None:
+    """None when titan=False -- callers fall back to local per-entity
+    evaluation, unchanged."""
+    if not titan:
+        return None
+    if not titan_benchmark_json:
+        raise ValueError("titan=True requires titan_benchmark_json (the titan_controller "
+                          "benchmark JSON covering the same benchmark names given via --).")
+    return {
+        "titan_controller_dir": Path(titan_dir) if titan_dir else Path(__file__).resolve().parents[2] / "titan_controller",
+        "benchmark_json_path": titan_benchmark_json,
+        "host_destination_path": Path(titan_host_dir) if titan_host_dir else outputdir / "titan",
+        "sniper_mount": titan_sniper_mount,
+        "benchmarks_mount": titan_benchmarks_mount,
+        "poll_interval": titan_poll_interval,
+    }
+
+
+def _evaluate_populations(
+    populations_params: list[list[dict[str, Any]]],
+    out_prefix: str,
+    reference_config: str,
+    sniper: Path,
+    benchmarks: dict[str, list[str]],
+    baseline: DesignPoint,
+    alpha: float,
+    global_cache: dict[frozenset, DesignPoint],
+    outputdir: Path,
+    titan_config: dict[str, Any] | None,
+) -> tuple[list[list[DesignPoint]], int, int]:
+    """Evaluates every entity across all populations for one generation --
+    locally one at a time, or (titan_config given) as one titan_batch job."""
+    if titan_config is None:
+        pop_points_list: list[list[DesignPoint]] = []
+        runs = invocations = 0
+        for pop_idx, entity_params in enumerate(populations_params):
+            pop_points = []
+            for ent_idx, params in enumerate(entity_params):
+                out = outputdir / f"{out_prefix}_pop{pop_idx}_ent{ent_idx}"
+                point, ran, inv = _evaluate_entity(
+                    params, out, reference_config, sniper, benchmarks, baseline, alpha, global_cache,
+                    prefix=f"[pop{pop_idx}] ",
+                )
+                runs += ran
+                invocations += inv
+                if point is not None:
+                    pop_points.append(point)
+            pop_points_list.append(pop_points)
+        return pop_points_list, runs, invocations
+
+    flat = [
+        (pop_idx, params, outputdir / f"{out_prefix}_pop{pop_idx}_ent{ent_idx}", _modified_params(params))
+        for pop_idx, entity_params in enumerate(populations_params)
+        for ent_idx, params in enumerate(entity_params)
+    ]
+    results = titan_batch.evaluate_batch(
+        [(params, out, mod) for _, params, out, mod in flat],
+        reference_config, benchmarks, baseline, alpha, global_cache,
+        titan_controller_dir=titan_config["titan_controller_dir"],
+        benchmark_json_path=titan_config["benchmark_json_path"],
+        host_destination_path=titan_config["host_destination_path"] / out_prefix,
+        sniper_mount=titan_config["sniper_mount"],
+        benchmarks_mount=titan_config["benchmarks_mount"],
+        poll_interval=titan_config["poll_interval"],
+        job_name=f"asi_{out_prefix}",
+    )
+    pop_points_list = [[] for _ in populations_params]
+    runs = invocations = 0
+    for (pop_idx, params, out, _), (point, ran, inv) in zip(flat, results):
+        runs += ran
+        invocations += inv
+        if point is not None:
+            print_evaluated_point(params, point, prefix=f"[pop{pop_idx}] ")
+            pop_points_list[pop_idx].append(point)
+    return pop_points_list, runs, invocations
 
 
 def _live_output_dirs(state: "Spea2SearchState", baseline_dir: Path) -> set[Path]:
@@ -364,87 +386,29 @@ def explore_pareto_front_spea2(
     seed_entities: list[dict[str, Any]] | None = None,
     preeval_runs: int = 0,
     preeval_invocations: int = 0,
+    titan: bool = False,
+    titan_benchmark_json: str | None = None,
+    titan_dir: str | None = None,
+    titan_host_dir: str | None = None,
+    titan_sniper_mount: str = "/mnt/perflab/exascience/src/jaco_sniper",
+    titan_benchmarks_mount: str = "/mnt/perflab/exascience/src/jaco_benchmarks",
+    titan_poll_interval: float = 30.0,
 ) -> list[DesignPoint]:
+    """COLE-style multi-objective evolutionary (SPEA2) exploration of the ASI
+    versus speedup design space; see README's "Strategy: spea2" section.
+
+    initial_cache seeds global_cache on a fresh start, ignored when resuming.
+    seed_entities replaces generation 0's random population with a
+    caller-supplied list (round-robined across populations), used by
+    hybrid.py to seed SPEA2 from another strategy's front. preeval_runs/
+    preeval_invocations attribute Sniper cost already spent before this call
+    (e.g. screening) into generation 0's own totals.
     """
-    COLE-style multi-objective evolutionary (SPEA2) exploration of the ASI
-    versus speedup design space.
+    titan_config = _titan_config(
+        titan, outputdir, titan_benchmark_json, titan_dir, titan_host_dir,
+        titan_sniper_mount, titan_benchmarks_mount, titan_poll_interval,
+    )
 
-    Per generation:
-      1. Environmental selection: for each population, combine it with its
-         current archive, compute SPEA2 fitness (dominance strength + a
-         crowding-distance density term), and keep the best `archive_size`
-         entities -- all non-dominated ones if they fit, otherwise a
-         crowding-truncated subset so the archive spreads across the front
-         rather than clustering.
-      2. Mating pool: for each population, fill a pool of `population_size`
-         slots. Each slot is either migrated in from another population's
-         archive (probability p_migration) or chosen via binary tournament
-         from the population's own archive (fitness-based, lower is better).
-      3. Reproduction: repeatedly pick two mating-pool parents; with
-         probability p_crossover produce a child via uniform crossover
-         (each parameter independently inherited from either parent),
-         otherwise the child is just a copy of one parent; then with
-         probability p_mutation, reassign one random parameter of the
-         child to a new value. This becomes the next generation's
-         population.
-      4. Evaluate every entity in the new populations (cache-aware, same
-         evaluate_point()/global_cache as the greedy strategy).
-
-    Termination: stops when the combined (across-population) Pareto front's
-    hypervolume hasn't meaningfully improved for `patience` consecutive
-    generations, or when `max_iterations` generations have run -- whichever
-    comes first.
-
-    initial_cache seeds global_cache on a fresh (non-resumed) start -- e.g.
-    with screening.screen_param_space's cache, so the baseline and any
-    already-evaluated points it found are reused instead of re-run. Ignored
-    when resuming a saved search, which already has its own global_cache.
-
-    seed_entities replaces generation 0's usual random population with a
-    caller-supplied list of already-known-good configurations -- e.g.
-    hybrid.py hands in another strategy's final Pareto front here, so SPEA2
-    starts refining an already-decent front via crossover/mutation instead of
-    spending early generations rediscovering it from scratch. seed_entities
-    is split round-robin across the `num_populations` islands (plus the
-    baseline, prepended to every island) rather than handing each island the
-    whole list: since _environmental_selection() is deterministic, giving
-    every island an identical starting population would make their
-    generation-0 archives identical too, and any seed point that's still
-    non-dominated (typically true of the front's own extreme points) would
-    then sit in every archive, unchanged, for the entire run -- an early
-    seed point that later migrates (see p_migration) between islands
-    legitimately ends up in more than one archive, but that should be the
-    exception, not something guaranteed for the whole front on day one. No
-    random padding and no truncation to population_size either way, unlike
-    a plain random start. As long as every seed_entities point was already
-    evaluated by whatever produced it (true of hybrid.py, which also passes
-    initial_cache=<that search's own global_cache>), this makes generation 0
-    cost zero new sniper runs: every seed entity is a global_cache hit.
-    Reproduction from generation 1 onward already builds population_size
-    children purely from the archive regardless of how large the previous
-    generation's population was (see the main loop below), so the
-    population naturally regrows to its usual size on its own -- generation
-    0 doesn't need to pre-pad it. Ignored when resuming a saved search, same
-    as initial_cache.
-
-    preeval_runs/preeval_invocations attribute Sniper cost that was already
-    spent *before* this call (e.g. cli.py's --preeval-method plackett_burman
-    screen, whose evaluated points are typically handed in via both
-    initial_cache and seed_entities together) into generation 0's own
-    sniper_runs/sniper_invocations and sim_history, even though every
-    seed_entities point lands as a global_cache hit here and so costs no
-    *new* runs of its own. Without this, that screening cost would vanish
-    from sim_history entirely -- generation 0 would report 0 configurations
-    spent despite having started from a fully pre-screened population -- so
-    hv_vs_sims.png's x-axis and the final "Configurations evaluated" total
-    would understate the true cost. This mirrors mesmo.py's own
-    preeval_points accounting for its initial design. Left at 0 (the
-    default) for hybrid.py's own seed_entities use, since there the seeding
-    strategy's cost (e.g. mesmo's) is already tracked in its own resumable
-    state and spliced into the combined plot separately (see
-    hybrid.explore_pareto_front_hybrid) -- attributing it again here would
-    double-count it.
-    """
     loaded = Spea2SearchState.load(outputdir)
     resumable = loaded is not None and loaded.matches(reference_config, benchmarks, alpha)
     if loaded is not None and not resumable:
@@ -478,10 +442,6 @@ def explore_pareto_front_spea2(
 
         seed_prefix = [dict(DEFAULTS)] + [dict(p) for p in (seed_entities or [])]
         if seed_entities:
-            # Round-robin rather than giving every island the whole list -- see
-            # this function's seed_entities docstring for why identical
-            # generation-0 populations would guarantee duplicate archive entries
-            # across islands.
             seed_partitions: list[list[dict[str, Any]]] = [[] for _ in range(num_populations)]
             for i, ent in enumerate(seed_entities):
                 seed_partitions[i % num_populations].append(dict(ent))
@@ -492,40 +452,21 @@ def explore_pareto_front_spea2(
         else:
             print(f"=== Generation 0 (initializing {num_populations} populations "
                   f"of {population_size} entities) ===")
-        populations: list[list[DesignPoint]] = []
-        runs_this_gen = 0
-        invocations_this_gen = 0
+        populations_params: list[list[dict[str, Any]]] = []
         for pop_idx in range(num_populations):
             if seed_entities:
-                # No random padding/truncation here (unlike the plain-random-start
-                # branch below): every seed_entities point is guaranteed to already
-                # be in global_cache (see this function's seed_entities docstring),
-                # so this keeps generation 0 at zero new sniper runs. Reproduction
-                # from generation 1 onward regrows the population to population_size
-                # on its own regardless of this starting size.
                 entity_params = [dict(DEFAULTS)] + seed_partitions[pop_idx]
             else:
                 fill = [_random_entity(rng) for _ in range(max(0, population_size - len(seed_prefix)))]
                 entity_params = (seed_prefix + fill)[:population_size]
-            pop_points = []
-            for ent_idx, params in enumerate(entity_params):
-                out = outputdir / f"gen0_pop{pop_idx}_ent{ent_idx}"
-                point, ran, invocations = _evaluate_entity(
-                    params, out, reference_config, sniper, benchmarks, baseline, alpha, global_cache,
-                    prefix=f"[pop{pop_idx}] ",
-                )
-                runs_this_gen += ran
-                invocations_this_gen += invocations
-                if point is not None:
-                    pop_points.append(point)
-            populations.append(pop_points)
+            populations_params.append(entity_params)
+
+        populations, runs_this_gen, invocations_this_gen = _evaluate_populations(
+            populations_params, "gen0", reference_config, sniper, benchmarks, baseline, alpha,
+            global_cache, outputdir, titan_config,
+        )
 
         if preeval_runs:
-            # Attribute screening's already-spent cost to generation 0 (see
-            # this function's preeval_runs docstring) -- every seed_entities
-            # point above was a global_cache hit, so runs_this_gen/
-            # invocations_this_gen up to here are 0 despite generation 0
-            # actually starting from a fully pre-screened population.
             print(f"  (+{preeval_runs} configuration{'s' if preeval_runs != 1 else ''} already "
                   f"spent by pre-evaluation screening, counted into generation 0)")
             runs_this_gen += preeval_runs
@@ -573,23 +514,12 @@ def explore_pareto_front_spea2(
                 children.append(child)
             next_populations.append(children)
 
-        evaluated_populations: list[list[DesignPoint]] = []
-        runs_this_gen = 0
-        invocations_this_gen = 0
         for pop_idx, entity_params in enumerate(next_populations):
             print(f"  Evaluating population {pop_idx} ({len(entity_params)} entities)...")
-            pop_points = []
-            for ent_idx, params in enumerate(entity_params):
-                out = outputdir / f"gen{generation}_pop{pop_idx}_ent{ent_idx}"
-                point, ran, invocations = _evaluate_entity(
-                    params, out, reference_config, sniper, state.benchmarks, state.baseline, alpha, state.global_cache,
-                    prefix=f"[pop{pop_idx}] ",
-                )
-                runs_this_gen += ran
-                invocations_this_gen += invocations
-                if point is not None:
-                    pop_points.append(point)
-            evaluated_populations.append(pop_points)
+        evaluated_populations, runs_this_gen, invocations_this_gen = _evaluate_populations(
+            next_populations, f"gen{generation}", reference_config, sniper, state.benchmarks, state.baseline,
+            alpha, state.global_cache, outputdir, titan_config,
+        )
         state.populations = evaluated_populations
         state.sniper_runs += runs_this_gen
         state.sniper_invocations += invocations_this_gen

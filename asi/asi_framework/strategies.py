@@ -1,12 +1,5 @@
-"""
-Registry of available search strategies, so the CLI can dispatch on a single
---strategy flag without hardcoding per-strategy logic. Adding a new strategy
-means writing its run function + resumable-state dataclass (see greedy.py's
-GreedySearchState / spea2.py's Spea2SearchState for the pattern each should
-follow), then registering it here -- cli.py needs no further changes since
-it forwards matching CLI flags to the run function automatically based on
-its parameter names (see cli.py's use of inspect.signature).
-"""
+"""Registry of available search strategies -- see README's "Extending:
+adding a new strategy" section."""
 from dataclasses import dataclass
 from typing import Callable
 
@@ -16,7 +9,7 @@ from . import greedy, spea2, mesmo, hybrid
 @dataclass(frozen=True)
 class StrategySpec:
     name: str
-    run: Callable[..., list]   # (reference_config, sniper, outputdir, benchmarks, alpha, max_iterations, **kwargs) -> list[DesignPoint]
+    run: Callable[..., list]
 
 
 STRATEGIES: dict[str, StrategySpec] = {

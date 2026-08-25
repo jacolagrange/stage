@@ -90,6 +90,29 @@ def build_parser() -> argparse.ArgumentParser:
     spea2_group.add_argument("--seed", type=int, default=0,
                               help="RNG seed for reproducible runs (spea2, mesmo).")
 
+    titan_group = parser.add_argument_group("titan strategy options (spea2 only)")
+    titan_group.add_argument("--titan", action="store_true",
+                              help="Evaluate each spea2 generation as one batch job on Titan "
+                                   "(titan_controller) instead of one local Sniper run at a time. "
+                                   "Requires --titan-benchmark-json.")
+    titan_group.add_argument("--titan-benchmark-json", dest="titan_benchmark_json",
+                              help="titan_controller benchmark JSON covering the same benchmark "
+                                   "names given after '--' (required with --titan).")
+    titan_group.add_argument("--titan-dir", dest="titan_dir",
+                              help="Path to the titan_controller checkout. Defaults to "
+                                   "'titan_controller' next to this repo.")
+    titan_group.add_argument("--titan-host-dir", dest="titan_host_dir",
+                              help="Where Titan results land locally. Defaults to outputdir/titan.")
+    titan_group.add_argument("--titan-sniper-mount", dest="titan_sniper_mount",
+                              default="/mnt/perflab/exascience/src/jaco_sniper",
+                              help="Sniper checkout mounted on Titan compute nodes.")
+    titan_group.add_argument("--titan-benchmarks-mount", dest="titan_benchmarks_mount",
+                              default="/mnt/perflab/exascience/src/jaco_benchmarks",
+                              help="Benchmarks checkout mounted on Titan compute nodes.")
+    titan_group.add_argument("--titan-poll-interval", dest="titan_poll_interval",
+                              type=float, default=30.0,
+                              help="Seconds between --list job polls while waiting on a batch.")
+
     mesmo_group = parser.add_argument_group("mesmo strategy options")
     mesmo_group.add_argument("--num-initial-points", type=int, default=5,
                               help="Random configurations (plus the baseline) evaluated up front to "
@@ -240,15 +263,9 @@ def main() -> int:
         "benchmarks": args.benchmarks,
         "alpha": args.alpha,
     }
-    # Only forward max_iterations if the user actually passed --iterations;
-    # otherwise let the chosen strategy's own function default apply (5 for
-    # greedy, 30 for spea2/mesmo) instead of one fixed number for everyone.
     if args.iterations is not None:
         base_kwargs["max_iterations"] = args.iterations
 
-    # Forward any strategy-specific CLI flags (e.g. --populations, --seed) whose
-    # dest name matches a parameter the chosen strategy's run function accepts.
-    # This is what lets a future strategy plug in without touching this dispatch.
     accepted = inspect.signature(strategy.run).parameters
     extra_kwargs = {k: v for k, v in vars(args).items() if k in accepted and k not in base_kwargs}
 
@@ -280,32 +297,11 @@ def main() -> int:
                     seed=args.preeval_seed,
                     method=args.preeval_method,
                 )
-            # All three strategies read PARAM_SPACE as a name bound into their
-            # own module at import time (`from .config import PARAM_SPACE`),
-            # so patching config.PARAM_SPACE itself wouldn't reach them --
-            # same convention tests/test.py already relies on.
             greedy.PARAM_SPACE = pruned_param_space
             spea2.PARAM_SPACE = pruned_param_space
             mesmo.PARAM_SPACE = pruned_param_space
-            # Seeds the strategy's own global_cache (baseline + any screening
-            # sample it happens to re-encounter) on a fresh start; a resumed
-            # run ignores it in favor of its own saved cache.
             base_kwargs["initial_cache"] = preeval_cache
 
-            # If the chosen strategy can be seeded with a starting generation
-            # (currently only spea2 -- see its seed_entities docstring), hand
-            # it every point screening already evaluated instead of letting
-            # generation 0 draw a fresh random population and leave those
-            # already-paid-for evaluations sitting unused in initial_cache.
-            # This mirrors hybrid.py seeding spea2's generation 0 from mesmo's
-            # final Pareto front. preeval_runs/preeval_invocations attribute
-            # screening's own Sniper cost (which screening itself never
-            # reports/plots a running total for) into the strategy's own
-            # sim_history/"Configurations evaluated" total -- the same
-            # accounting mesmo.py already does for its own initial design
-            # when seeded from a screening cache -- so hv_vs_sims.png's
-            # x-axis reflects the true number of configurations spent, not
-            # just the ones re-run inside this strategy call.
             if "seed_entities" in accepted:
                 baseline_key = greedy.params_key(DEFAULTS)
                 preeval_points = [p for k, p in preeval_cache.items() if k != baseline_key]

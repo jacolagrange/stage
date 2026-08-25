@@ -13,7 +13,6 @@ from .state import (
     point_to_dict, point_from_dict, state_path, write_json_atomic, read_raw_state, cleanup_dirs,
 )
 
-# Short display names for parameter keys
 _SHORT = {
     "l1i_size": "l1i", "l1d_size": "l1d", "l2_size": "l2", "l3_size": "l3",
     "l1i_assoc": "l1ia", "l1d_assoc": "l1da", "l2_assoc": "l2a", "l3_assoc": "l3a",
@@ -27,12 +26,8 @@ _SHORT = {
 
 def fmt_params(params: dict[str, Any]) -> str:
     """Renders a point's (possibly sparse) params dict for terminal output.
-    Every other key is shown only when it deviates from its default (the
-    usual sparse-dict convention -- absent means "reference config's own
-    value"), but branch_predictor_type is always shown explicitly: which
-    predictor a point used is important enough to want visible at a glance
-    even on points that still use the a53 default, not just the ones where
-    the search actually varied it."""
+    branch_predictor_type is always shown; every other key only when it
+    deviates from its default."""
     if not params or all(params[p] == DEFAULTS[p] for p in params):
         return "baseline"
     bp_type = params.get("branch_predictor_type", DEFAULTS.get("branch_predictor_type", DEFAULT_BRANCH_PREDICTOR_TYPE))
@@ -74,10 +69,6 @@ def calculate_asi(Ay: float, Ax: float, Py: float, Px: float, alpha: float) -> f
 
 
 def geomean(values: list[float]) -> float:
-    """Geometric mean, used to combine per-benchmark speedups into the single
-    scalar speedup that both search strategies' Pareto/dominance logic
-    optimizes (standard practice for aggregating a benchmark suite, e.g.
-    SPECspeed) -- with one benchmark this is exactly that benchmark's speedup."""
     product = 1.0
     for v in values:
         product *= v
@@ -106,37 +97,12 @@ def evaluate_point(
     alpha: float,
     global_cache: dict[frozenset, DesignPoint],
 ) -> tuple[DesignPoint | None, bool, int]:
-    """Returns (point, ran_sniper, sniper_invocations).
-
-    ran_sniper is False on a cache hit and True whenever run() was actually
-    invoked at least once (including on failure) -- this is what callers
-    accumulate into sniper_runs/sim_history, i.e. one unit per *configuration
-    evaluated* (a full sweep over every given benchmark), matching what a
-    search iteration/generation actually spends its budget on.
-
-    sniper_invocations is the number of real run() calls actually made for
-    this point (0 on a cache hit, len(benchmarks) on a full real evaluation,
-    or however many benchmarks it got through before a failure) -- the raw
-    count of literal Sniper subprocess executions, which is
-    len(benchmarks)x larger than ran_sniper's per-configuration count
-    whenever more than one benchmark is given. Kept separate from
-    ran_sniper/sniper_runs (rather than replacing it) since the latter is
-    what search strategies actually reason about one-per-iteration; this is
-    just for reporting real simulator cost at the end of a run."""
+    """Returns (point, ran_sniper, sniper_invocations) -- see README's
+    "evaluate_point()" bullet in Shared building blocks for their meaning."""
     key = params_key(params)
-    if key in global_cache:
-        cached = global_cache[key]
-        return DesignPoint(
-            params=cached.params,
-            area=cached.area,
-            peak_power=cached.peak_power,
-            time=cached.time,
-            asi=cached.asi,
-            speedup=cached.speedup,
-            modified_params=modified_params,
-            output_path=cached.output_path,
-            per_benchmark=cached.per_benchmark,
-        ), False, 0
+    cached = cached_point(key, modified_params, global_cache)
+    if cached is not None:
+        return cached, False, 0
 
     areas: list[float] = []
     powers: list[float] = []
@@ -153,6 +119,49 @@ def evaluate_point(
         powers.append(peak_power)
         per_benchmark[name] = {"time": time}
 
+    point = finalize_point(params, modified_params, output_path, per_benchmark, areas, powers, baseline, alpha, global_cache, key)
+    return point, True, sniper_invocations
+
+
+def cached_point(
+    key: frozenset, modified_params: set[str], global_cache: dict[frozenset, DesignPoint],
+) -> DesignPoint | None:
+    """Reconstructs a DesignPoint from a global_cache hit with this call's own
+    modified_params (which vary per caller even for the same params key).
+    Shared by evaluate_point() and titan_batch.py's batch evaluator."""
+    if key not in global_cache:
+        return None
+    cached = global_cache[key]
+    return DesignPoint(
+        params=cached.params,
+        area=cached.area,
+        peak_power=cached.peak_power,
+        time=cached.time,
+        asi=cached.asi,
+        speedup=cached.speedup,
+        modified_params=modified_params,
+        output_path=cached.output_path,
+        per_benchmark=cached.per_benchmark,
+    )
+
+
+def finalize_point(
+    params: dict[str, Any],
+    modified_params: set[str],
+    output_path: Path,
+    per_benchmark: dict[str, dict[str, float]],
+    areas: list[float],
+    powers: list[float],
+    baseline: DesignPoint,
+    alpha: float,
+    global_cache: dict[frozenset, DesignPoint],
+    key: frozenset,
+) -> DesignPoint:
+    """Aggregates one fully-measured point's per-benchmark (area, power, time)
+    into a DesignPoint (mean area/power, ASI, geomean speedup) and caches it.
+    Shared by evaluate_point() (local runs) and titan_batch.py (Titan-collected
+    runs), so both paths produce identical DesignPoints from the same raw
+    measurements."""
     for name, data in per_benchmark.items():
         data["speedup"] = baseline.per_benchmark[name]["time"] / data["time"]
 
@@ -168,7 +177,7 @@ def evaluate_point(
     point.asi = calculate_asi(baseline.area, point.area, baseline.peak_power, point.peak_power, alpha)
     point.speedup = geomean([data["speedup"] for data in per_benchmark.values()])
     global_cache[key] = point
-    return point, True, sniper_invocations
+    return point
 
 
 def compute_baseline(
@@ -177,19 +186,8 @@ def compute_baseline(
     baseline_dir: Path,
     benchmarks: dict[str, list[str]],
 ) -> DesignPoint:
-    """Runs every benchmark once with every parameter forced to its
-    param_space.json default (DEFAULTS, i.e. each param list's first entry)
-    to get the reference-config baseline DesignPoint (asi=speedup=1.0 by
-    definition, since it's compared against itself). Shared by every
-    strategy's own baseline step (greedy, spea2) and by
-    screening.screen_param_space.
-
-    Deliberately overrides with DEFAULTS rather than running the reference
-    .cfg file unmodified: DEFAULTS is the single source of truth for "what
-    the baseline hardware is" (see config.py's PARAM_SPACE/DEFAULTS
-    docstring), and a candidate point evaluated at exactly the default
-    values must simulate identically to the baseline. If the reference .cfg
-    disagrees with DEFAULTS on some parameter, DEFAULTS wins here."""
+    """Runs every benchmark once with every parameter forced to DEFAULTS to
+    get the reference-config baseline DesignPoint (asi=speedup=1.0)."""
     areas: list[float] = []
     powers: list[float] = []
     per_benchmark: dict[str, dict[str, float]] = {}
@@ -211,18 +209,7 @@ def compute_baseline(
 
 
 def update_pareto_front(front: list[DesignPoint], points: list[DesignPoint]) -> list[DesignPoint]:
-    """Non-dominated points from front + points, deduplicated by params.
-
-    dominates() is a strict comparison, so two points with identical params
-    never dominate each other -- without an explicit dedup step, the same
-    configuration reaching this function more than once (e.g. spea2.py
-    merging several islands' archives, where the same non-dominated entity
-    can independently survive in more than one archive) would come out the
-    other side as repeated rows on the "Pareto front" instead of one. Keeps
-    whichever copy appears first in front + points; every field of an
-    identical-params point is identical anyway (evaluate_point()'s
-    global_cache means a repeat evaluation always returns the exact same
-    cached DesignPoint), so which copy is kept doesn't matter."""
+    """Non-dominated points from front + points, deduplicated by params."""
     all_points = front + points
     non_dominated = [
         p for p in all_points
@@ -236,18 +223,10 @@ def update_pareto_front(front: list[DesignPoint], points: list[DesignPoint]) -> 
 
 def hypervolume(front: list[DesignPoint]) -> float:
     """2D hypervolume of a maximizing Pareto front relative to the origin
-    (ASI=0, speedup=0), the reference point every strategy compares progress
-    against. A point with a negative ASI or speedup still belongs on the
-    Pareto front (and is still drawn on the plots) -- it just contributes
-    nothing to hypervolume on the axis where it falls below the origin,
-    via the max(0.0, ...) clamps below -- so hypervolume alone never
-    describes those points, only where they stand relative to the rest of
-    the front. Shared by every search strategy so a final front can be
-    compared across runs/strategies on the same scale, not just
-    generation-to-generation within a single run."""
+    (ASI=0, speedup=0). See README's "Pareto dominance & hypervolume" bullet."""
     if not front:
         return 0.0
-    pts = sorted(front, key=lambda p: p.speedup)  # ascending speedup => non-increasing asi
+    pts = sorted(front, key=lambda p: p.speedup)
     hv = 0.0
     prev_speedup = 0.0
     for p in pts:
@@ -295,11 +274,6 @@ class GreedySearchState:
     pareto_size_history: list[int]
 
     def matches(self, reference_config: str, benchmarks: dict[str, list[str]], alpha: float) -> bool:
-        """Also checked against the live PARAM_SPACE: a resumed search only
-        samples brand-new parameters/values through the freezing logic's
-        narrow parameter-at-a-time expansion, so a PARAM_SPACE change (e.g.
-        adding a new branch_predictor_type) would otherwise go almost
-        entirely unexplored if silently resumed instead of restarted."""
         return (
             self.reference_config == str(reference_config)
             and self.benchmarks == benchmarks
@@ -366,7 +340,7 @@ class GreedySearchState:
         raw = read_raw_state(outputdir)
         if raw is None:
             return None
-        found = raw.get("strategy", "greedy")  # missing key == pre-multi-strategy state file
+        found = raw.get("strategy", "greedy")
         if found != cls.STRATEGY:
             print(f"Saved search state at {state_path(outputdir)} was written by strategy "
                   f"'{found}', not '{cls.STRATEGY}' — starting fresh.\n")
@@ -383,14 +357,9 @@ def explore_pareto_front_with_sensitivity(
     max_iterations: int = 5,
     initial_cache: dict[frozenset, DesignPoint] | None = None,
 ) -> list[DesignPoint]:
-    """
-    Iterative Pareto-front exploration with sensitivity-based parameter freezing.
-
-    initial_cache seeds global_cache on a fresh (non-resumed) start -- e.g.
-    with screening.screen_param_space's cache, so the baseline and any
-    already-evaluated points it found are reused instead of re-run. Ignored
-    when resuming a saved search, which already has its own global_cache.
-    """
+    """Iterative Pareto-front exploration with sensitivity-based parameter
+    freezing; see README's "Strategy: greedy" section. initial_cache seeds
+    global_cache on a fresh start, ignored when resuming."""
     SENSITIVITY_MIN_SAMPLES = 3
     SENSITIVITY_THRESHOLD = 0.05
     SENSITIVITY_WINDOW = 6
@@ -407,7 +376,6 @@ def explore_pareto_front_with_sensitivity(
         print(f"Resuming search from iteration {state.iteration} "
               f"(found {state_path(outputdir)})\n")
     else:
-        # --- Baseline ---
         global_cache: dict[frozenset, DesignPoint] = dict(initial_cache) if initial_cache else {}
         baseline_key = params_key(DEFAULTS)
         if baseline_key in global_cache:
@@ -440,7 +408,6 @@ def explore_pareto_front_with_sensitivity(
     for iteration in range(state.iteration, max_iterations):
         print(f"=== Iteration {iteration} ===")
 
-        # Build search set from newly added Pareto points
         search_set: list[tuple] = []
         seen_keys: set[frozenset] = set()
         for parent in state.newly_added:
@@ -450,7 +417,7 @@ def explore_pareto_front_with_sensitivity(
             parent_active = active_params(PARAM_SPACE, parent_bp_type)
             for param, values in PARAM_SPACE.items():
                 if param not in parent_active:
-                    continue  # e.g. nn_learning_rate is meaningless while this parent's type is pentium_m
+                    continue
                 if param in parent.modified_params or state.frozen_until.get(param, -1) >= iteration:
                     continue
                 for value in values:
@@ -458,8 +425,6 @@ def explore_pareto_front_with_sensitivity(
                         continue
                     child_params = {**parent.params, param: value}
                     if param == "branch_predictor_type":
-                        # Switching type invalidates the old type's predictor-specific
-                        # knobs (never read once the type changes) -- drop the stale keys.
                         for stale in CONDITIONAL_PARAMS - set(BRANCH_PREDICTOR_PARAMS.get(value, ())):
                             child_params.pop(stale, None)
                     child_key = params_key(child_params)
@@ -497,7 +462,6 @@ def explore_pareto_front_with_sensitivity(
         state.sniper_runs += runs_this_iter
         state.sniper_invocations += invocations_this_iter
 
-        # Sensitivity-based parameter freezing
         for param, (d_asi, d_spd) in state.sensitivity_history.items():
             if state.frozen_until.get(param, -1) >= iteration or len(d_asi) < SENSITIVITY_MIN_SAMPLES:
                 continue
@@ -509,14 +473,12 @@ def explore_pareto_front_with_sensitivity(
                 state.frozen_until[param] = iteration + backoff
                 print(f"  Freezing '{param}' for {backoff} iterations (backoff ×{state.freeze_count[param]})")
 
-        # Update Pareto front
         old_pareto_dirs = {p.output_path for p in state.pareto_set if p.output_path}
         state.pareto_set = update_pareto_front(state.pareto_set, evaluated)
         state.pareto_set_history.append(list(state.pareto_set))
         new_pareto_dirs = {p.output_path for p in state.pareto_set if p.output_path}
         all_pareto_dirs = new_pareto_dirs | {baseline_dir}
 
-        # Delete output dirs of points that didn't make the Pareto front
         dropped = (old_pareto_dirs | {p.output_path for p in evaluated if p.output_path}) - all_pareto_dirs
         n = cleanup_dirs(dropped)
         if n:
@@ -539,7 +501,6 @@ def explore_pareto_front_with_sensitivity(
         state.iteration = iteration + 1
         state.save(outputdir)
 
-    # Final cleanup: drop any surviving dirs no longer on the Pareto front
     n = cleanup_dirs(all_pareto_dirs - {p.output_path for p in state.pareto_set if p.output_path} - {baseline_dir})
     if n:
         print(f"Final cleanup: removed {n} stale output director{'y' if n == 1 else 'ies'}.")

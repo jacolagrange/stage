@@ -62,11 +62,7 @@ def plot_pareto_front_on_asi(
     save_path: Path | None = None,
     show: bool = True,
 ) -> None:
-    """
-    Plot ASI sustainability regions (Fig. 1 of the paper) with a single
-    Pareto front overlaid. If save_path is given the figure is saved there
-    before being shown.
-    """
+    """Plot ASI sustainability regions with a single Pareto front overlaid."""
     speedups = [p.speedup for p in front]
     asi_values = [p.asi for p in front]
     x_min, x_max, y_min, y_max = _asi_region_bounds(speedups, asi_values)
@@ -87,14 +83,8 @@ def plot_pareto_fronts_on_asi(
     save_path: Path | None = None,
     show: bool = True,
 ) -> None:
-    """
-    Plot a sequence of Pareto fronts (e.g. one per SPEA2 generation) overlaid
-    on the same ASI sustainability-region background. Earlier fronts are
-    shown as small, faint points color-coded by their position in the
-    sequence (via a colorbar rather than a per-front legend entry, since
-    there can be dozens of generations); the last front is drawn on top as
-    large, solid points so the final result stands out.
-    """
+    """Plot a sequence of Pareto fronts (e.g. one per generation), color-coded
+    by position; the last front is drawn on top as large, solid points."""
     non_empty = [f for f in fronts if f]
     if not non_empty:
         raise ValueError("plot_pareto_fronts_on_asi requires at least one non-empty front")
@@ -144,47 +134,10 @@ def plot_hv_vs_simulations(
     switch_sims: list[int] | None = None,
     switch_label: str = "Strategy switch",
 ) -> None:
-    """
-    Two stacked subplots, sharing one x-axis (cumulative configurations
-    actually evaluated so far, i.e. excluding cache hits): Pareto-front
-    hypervolume (see greedy.hypervolume) on top, and the front's point count
-    on the bottom.
-    Two subplots rather than one axes with a second y-axis, since
-    hypervolume and point count live on unrelated scales -- overlaying them
-    on twin axes would let the reader misread one curve's shape against the
-    other's incomparable scale.
-
-    The x-axis is the number every strategy's search actually costs, as
-    opposed to iteration/generation count, which means something different
-    for each strategy (mesmo's default batch_size=1 spends exactly one
-    simulation per iteration, so its curve is a near-continuous
-    per-simulation trace; greedy's iterations and spea2's generations each
-    evaluate a whole batch of configurations before the front -- and hence
-    hv_history/size_history -- update again, so both show up here as flat
-    plateaus followed by a jump). Drawn as step functions (`where="post"`)
-    since both histories only actually change at those jump points --
-    interpolating between them would imply progress that didn't happen.
-    `sim_history`/`hv_history`/`size_history` are the parallel lists each
-    search strategy checkpoints in its own resumable state (GreedySearchState.
-    sim_history/hv_history/pareto_size_history, etc.), one triple of entries
-    per iteration/generation, all starting at the pre-search state (0
-    simulations, the baseline-only front).
-
-    `switch_sims`, if given, draws a vertical dashed line on both subplots at
-    each of those cumulative-simulation x-values -- used by the hybrid
-    strategy to mark where the search handed off from one phase's strategy
-    to the next (e.g. MESMO -> SPEA2), so the reader can tell which segment
-    of the curve came from which algorithm instead of just seeing one
-    unexplained kink. Each switch line is annotated with its exact
-    configuration count rather than leaving the reader to eyeball it off the
-    x-axis ticks, and the final point is annotated with the total for the
-    same reason. Note this axis counts *configurations evaluated* (one unit
-    per non-cache-hit search iteration/generation step), not literal Sniper
-    subprocess invocations -- a single configuration sweeps every given
-    benchmark, so the real invocation count is this axis's value times the
-    benchmark count whenever more than one benchmark is used (see each
-    strategy's own "Total sniper invocations" summary line for that number).
-    """
+    """Two stacked step-plots vs. cumulative configurations evaluated:
+    hypervolume on top, Pareto front size on the bottom. switch_sims (used by
+    hybrid) draws a vertical line + annotation at each strategy handoff. See
+    README's "Hypervolume-vs-simulations plot" section."""
     fig, (ax_hv, ax_size) = plt.subplots(2, 1, figsize=(8, 8), sharex=True)
 
     ax_hv.step(sim_history, hv_history, where="post", color="#6f42c1", linewidth=1.75, zorder=3)

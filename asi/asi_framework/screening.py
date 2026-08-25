@@ -1,71 +1,6 @@
-"""
-Parameter-importance pre-screen, run once before any search strategy (see
-cli.py's --preeval-samples/--preeval-method flags). Prunes every parameter
-whose estimated importance falls below a threshold down to its default-only
-value -- so greedy/spea2 (which both read the module-level PARAM_SPACE in
-their own modules, see config.active_params's docstring) never spend
-evaluations varying it.
-
-Two screening methods are available (--preeval-method):
-
-  perceptron (default) -- randomly samples a handful of full configurations,
-    trains a single linear unit to predict how far each sample lands from the
-    baseline in (ASI, speedup) space from its parameters' one-hot encoding.
-    This is a rough screen, not a substitute for the strategies' own on-line
-    sensitivity logic (greedy's freezing, spea2's full-space search): with
-    only a few dozen random samples across ~20 parameters, a conditional
-    parameter that's only active under a rarely-sampled branch_predictor_type
-    (e.g. nn_learning_rate under "nn") can easily look unimportant by chance
-    and get pruned. Keep --preeval-samples comfortably larger than the
-    parameter count, or skip screening for runs where every parameter
-    matters.
-
-  plackett_burman -- follows Yi, Lilja & Hawkins, "A Statistically Rigorous
-    Approach for Improving Simulation Methodology" (Section 2): every
-    always-relevant, non-branch-predictor parameter is treated as a two-level
-    factor -- tested at the minimum and maximum of its listed values, the two
-    extremes of its declared range, matching the paper's "just outside the
-    normal range" guidance -- and varied according to a Plackett-Burman
-    design with foldover, deliberately oversized (see _next_pb_size) to leave
-    a couple of spare "dummy" columns tied to no real parameter. A
-    parameter's effect is computed *separately per objective* (ASI, speedup)
-    as the sum, over every run, of its assigned +-1 level times that run's
-    *signed* deviation from baseline on that objective; a dummy column's
-    effect is computed the same way despite representing nothing, so its
-    magnitude is pure per-objective noise. Effects are kept per-objective
-    (not combined into one non-negative Euclidean distance) because
-    combining them discards direction and lets a single dominant/saturating
-    parameter (e.g. a crippling rob_window_size=16) swamp every column's
-    effect sum at once -- both real and dummy alike -- which in practice
-    produced an unstable all-kept-or-all-pruned split instead of a real
-    ranking. Following the paper's own Table 6 (whose "Dummy Parameter" rows
-    are the yardstick for which real parameters' ranks are actually
-    trustworthy), a real parameter is kept if either objective's |effect|
-    exceeds that objective's own largest |dummy effect| -- not an arbitrary
-    fraction of the largest real effect.
-
-    branch_predictor_type itself, and its own predictor-specific knobs (see
-    BRANCH_PREDICTOR_PARAMS), are excluded from that design entirely -- a
-    >2-valued categorical choice like the predictor type doesn't fit a
-    strictly 2-level PB factor, and forcing it into one would mean two of its
-    four values (e.g. pentium_m, tage) are never tested at all. Rather than
-    screen them some other way, this method simply spends no PB evaluations
-    on them -- but leaves them untouched (their full PARAM_SPACE range, not
-    pruned) in the returned param space, so the search strategy that runs
-    afterward is still free to explore branch_predictor_type normally.
-
-Both methods are rough screens, not substitutes for the strategies' own
-on-line sensitivity logic.
-
-A completed screen is cached to outputdir/preeval/screen_cache.json and
-reused automatically the next time screen_param_space() is called with a
-matching config/benchmarks/alpha/method (and, for perceptron, matching
-num_samples/keep_threshold/seed too, since unlike plackett_burman its result
-actually depends on them) -- see cli.py's --preeval-cache flag to reuse that
-cache on a run that doesn't pass --preeval-samples/--preeval-method at all.
-An in-progress screen has no partial checkpoint though: interrupting one
-before it completes still means rerunning the whole thing from scratch.
-"""
+"""Parameter-importance pre-screen (perceptron or Plackett-Burman), run once
+before any search strategy. See README's "Optional pre-processing:
+parameter screening" section."""
 import json
 import random
 from pathlib import Path
@@ -78,9 +13,7 @@ from .state import cleanup_dirs, write_json_atomic, point_to_dict, point_from_di
 
 
 def _random_entity(rng: random.Random, param_space: dict[str, list]) -> dict[str, Any]:
-    """A fully-specified configuration, mirroring spea2._random_entity: one
-    value per always-relevant parameter, plus the chosen branch predictor
-    type's own knobs."""
+    """A fully-specified configuration, mirroring spea2._random_entity."""
     entity = {
         param: rng.choice(values)
         for param, values in param_space.items()
@@ -92,15 +25,12 @@ def _random_entity(rng: random.Random, param_space: dict[str, list]) -> dict[str
 
 
 def _encode_features(params: dict[str, Any], param_space: dict[str, list]) -> dict[str, float]:
-    """One binary feature per (param, non-default value) pair -- 1.0 if this
-    point uses that value, else 0.0. A missing key (conditional param not
-    active for this point's predictor type) is treated as "at default", same
-    as the rest of the codebase's sparse-dict convention."""
+    """One binary feature per (param, non-default value) pair."""
     features = {}
     for param, values in param_space.items():
         default = values[0]
         actual = params.get(param, default)
-        for value in values[1:]: # skip the default, which is never a feature.
+        for value in values[1:]:
             features[f"{param}={value}"] = 1.0 if actual == value else 0.0
     return features
 
@@ -109,12 +39,8 @@ def _train_perceptron(
     rows: list[dict[str, float]], targets: list[float], rng: random.Random,
     epochs: int = 300, lr: float = 0.05, l2: float = 0.01,
 ) -> dict[str, float]:
-    """Single linear unit trained by the delta rule (online gradient descent
-    on squared error) to predict each sample's distance-from-baseline target
-    from its one-hot features. A small L2 penalty keeps weights bounded when
-    the sample count is small relative to the number of features (typical
-    here: a few dozen samples against ~20 parameters' worth of one-hot
-    values). The learned |weight| per feature is the importance signal."""
+    """Single linear unit trained online (delta rule + L2) to predict each
+    sample's distance-from-baseline target from its one-hot features."""
     keys = list(rows[0].keys())
     weights = {k: 0.0 for k in keys}
     bias = 0.0
@@ -146,23 +72,8 @@ def _is_prime(n: int) -> bool:
 
 
 def _next_pb_size(min_factors: int, min_dummy: int = 2) -> int:
-    """Smallest Plackett-Burman design size (a multiple of 4) that can host
-    at least `min_factors` two-level factors *plus* `min_dummy` spare
-    ("dummy") columns tied to no real factor, via the Paley construction used
-    by _pb_base_design below -- i.e. the smallest x = q + 1 (x a multiple of
-    4) with q prime, q % 4 == 3, and q >= min_factors + min_dummy. Such q are
-    plentiful (3, 7, 11, 19, 23, 31, 43, ...) so this always terminates
-    quickly for realistic parameter counts, but it does mean the achievable
-    sizes are a subset of "x divisible by 4" -- e.g. x=16 (q=15, not prime)
-    is skipped in favor of x=20.
-
-    The dummy columns exist because Yi, Lilja & Hawkins (Section 2, Table 6)
-    deliberately include a couple of "Dummy Parameter" columns bound to no
-    real factor in their design: since a dummy column's effect is pure noise
-    by construction, its magnitude is the yardstick the paper uses to decide
-    whether a *real* parameter's effect is actually distinguishable from
-    noise, rather than pruning by an arbitrary fraction of the largest
-    effect."""
+    """Smallest Plackett-Burman design size (x = q+1, q prime, q%4==3) that
+    fits min_factors two-level factors plus min_dummy noise-reference columns."""
     x = ((min_factors + min_dummy + 4) // 4) * 4
     while not (_is_prime(x - 1) and (x - 1) % 4 == 3 and x - 1 >= min_factors + min_dummy):
         x += 4
@@ -170,24 +81,17 @@ def _next_pb_size(min_factors: int, min_dummy: int = 2) -> int:
 
 
 def _pb_base_design(x: int) -> list[list[int]]:
-    """Base (no foldover) Plackett-Burman design: x runs testing up to x-1
-    two-level (+-1) factors, via the Paley construction of a Hadamard matrix
-    of order x (requires q = x-1 to be prime with q % 4 == 3). Row 0 is the
-    quadratic-residue generator row; rows 1..q-1 are its successive circular
-    right shifts (the Jacobsthal matrix Q is circulant, and Q+I stays
-    circulant); the last row is all -1's -- reproducing, from first
-    principles, the classic Plackett & Burman (1946) construction described
-    in the paper's Section 2 / Table 1 (whose own generator rows come from a
-    hardcoded table instead of being derived here)."""
+    """Base (no foldover) Plackett-Burman design via the Paley construction
+    of a Hadamard matrix of order x (q = x-1 prime, q%4==3)."""
     q = x - 1
     residues = {(i * i) % q for i in range(1, q)}
-    chi = [0] + [1 if a in residues else -1 for a in range(1, q)]  # chi[a], a = 0..q-1
+    chi = [0] + [1 if a in residues else -1 for a in range(1, q)]
 
     row0 = [chi[(-j) % q] + (1 if j == 0 else 0) for j in range(q)]
     rows = [row0]
     for _ in range(q - 1):
         prev = rows[-1]
-        rows.append([prev[-1]] + prev[:-1])  # circular right shift
+        rows.append([prev[-1]] + prev[:-1])
     rows.append([-1] * q)
     return rows
 
@@ -200,29 +104,11 @@ def _pb_design_with_foldover(x: int) -> list[list[int]]:
 def _pb_entities(
     param_space: dict[str, list],
 ) -> tuple[list[dict[str, Any]], dict[str, tuple[Any, Any]], list[list[int]], int]:
-    """One fully-specified configuration per row of a Plackett-Burman design
-    with foldover, for every parameter except branch_predictor_type and its
-    own predictor-specific knobs (see module docstring -- those are never
-    varied in this mode). Each remaining parameter is assigned its own design
-    column and tested at the minimum or maximum of its listed values, rather
-    than at two arbitrarily-positioned entries of that list.
-    branch_predictor_type stays at its default throughout (simply omitted,
-    per the sparse-dict convention), so its own knobs are never active here
-    and are excluded from the design entirely. Columns beyond the real
-    parameter count are the design's deliberate "dummy
-    parameters" (see _next_pb_size) -- kept out of `entities` (they're bound
-    to no real parameter) but their raw +-1 values are returned via `design`
-    so the caller can compute their effects too, as the noise reference the
-    paper's Table 6 uses.
-
-    Returns (entities, levels, design, num_real_columns):
-      - levels[param] = (low, high) records which value was which level,
-        needed afterwards to sign each run's contribution to that
-        parameter's effect.
-      - design is the full design matrix (one row per entity, one column per
-        PB factor including the dummy ones).
-      - num_real_columns is len(columns) -- design columns at or beyond this
-        index are dummy columns."""
+    """One config per Plackett-Burman-with-foldover design row, min/max per
+    parameter (branch_predictor_type and its own knobs excluded, left at
+    default). Returns (entities, levels, design, num_real_columns) -- levels
+    records which value was which level; design columns >= num_real_columns
+    are dummy (noise-reference) columns."""
     columns = [
         p for p in param_space
         if p != "branch_predictor_type" and p not in CONDITIONAL_PARAMS and len(param_space[p]) >= 2
@@ -248,12 +134,8 @@ def _screen_identity(
     num_samples: int, keep_threshold: float, seed: int,
 ) -> dict:
     """Identifies a screening run for cache matching. plackett_burman is
-    fully deterministic given just (config, benchmarks, alpha, PARAM_SPACE)
-    -- num_samples/keep_threshold/seed don't affect its result (see
-    screen_param_space's docstring), so they're left out of its identity to
-    avoid spurious cache misses (e.g. --preeval-samples 1 vs. 5, which that
-    method ignores anyway). perceptron's result does depend on those, so
-    they're included for it."""
+    deterministic given (config, benchmarks, alpha, PARAM_SPACE) alone;
+    perceptron's result also depends on num_samples/keep_threshold/seed."""
     identity = {
         "reference_config": str(reference_config),
         "benchmarks": benchmarks,
@@ -299,19 +181,9 @@ def _save_screen_cache(
 def load_screening_cache(
     outputdir: Path, reference_config: str, benchmarks: dict[str, list[str]], alpha: float,
 ) -> tuple[dict[str, list], dict[frozenset, DesignPoint]]:
-    """Load a pruning + evaluated-points cache saved by an earlier
-    screen_param_space() call, without re-screening -- backs cli.py's
-    --preeval-cache flag, for rerunning the search strategy with different
-    strategy flags against an already-computed pruning instead of paying for
-    screening's Sniper runs again. Unlike screen_param_space's own internal
-    cache reuse (which also matches on method/num_samples/keep_threshold/
-    seed), this only checks what must still hold for the pruning to still be
-    valid -- config/benchmarks/alpha/PARAM_SPACE -- since the caller isn't
-    passing a method to compare against.
-
-    Raises FileNotFoundError/ValueError if no matching cache exists: for a
-    flag whose whole point is "reuse the earlier pruning", silently falling
-    back to the unpruned PARAM_SPACE would be a confusing surprise."""
+    """Loads a screen_param_space() cache without re-screening (backs
+    --preeval-cache). Raises FileNotFoundError/ValueError if no cache
+    matching config/benchmarks/alpha/PARAM_SPACE exists."""
     path = _screen_cache_path(outputdir)
     raw = _read_screen_cache_file(outputdir)
     if raw is None:
@@ -343,31 +215,10 @@ def screen_param_space(
     seed: int = 0,
     method: str = "perceptron",
 ) -> tuple[dict[str, list], dict[frozenset, DesignPoint]]:
-    """Returns (pruned_param_space, global_cache).
-
-    pruned_param_space is a copy of PARAM_SPACE where every parameter judged
-    unimportant has been reduced to a single-element list containing just its
-    default -- i.e. later strategies will never vary it. `method` selects
-    "perceptron" (default, uses `num_samples` random configurations, pruned
-    via `keep_threshold` relative to the most important parameter) or
-    "plackett_burman" (a Plackett-Burman design instead, see module
-    docstring; its parameters are pruned against the design's own
-    dummy-column noise ceiling, not `keep_threshold`; branch_predictor_type
-    and its own knobs are never varied in this mode, so `keep_threshold` is
-    unused by it).
-
-    global_cache holds the baseline plus every successfully evaluated sample
-    from this screen, keyed the same way as the search strategies' own
-    global_cache (see greedy.params_key). Callers should pass it into the
-    chosen strategy's run function so a config re-encountered during the
-    actual search -- most likely the baseline itself, since every strategy
-    evaluates it first -- is a cache hit instead of a re-run.
-
-    A completed screen is cached to disk and reused here automatically on a
-    later call whose identity matches (see _screen_identity) -- so rerunning
-    the exact same --preeval-* flags (e.g. only to add an unrelated
-    strategy flag) doesn't re-pay for the Sniper runs screening already
-    did."""
+    """Returns (pruned_param_space, global_cache) -- pruned_param_space
+    reduces every unimportant parameter to its default-only value; method
+    is "perceptron" or "plackett_burman" (see README). Cached to disk and
+    reused on a later call with matching identity (_screen_identity)."""
     identity = _screen_identity(reference_config, benchmarks, alpha, method, num_samples, keep_threshold, seed)
     cached = _load_screen_cache(outputdir, identity)
     if cached is not None:
@@ -397,10 +248,6 @@ def screen_param_space(
     baseline = compute_baseline(reference_config, sniper, baseline_dir, benchmarks)
 
     global_cache = {params_key(DEFAULTS): baseline}
-    # baseline_dir is deliberately left out of sample_dirs: the baseline is
-    # the one point a resumed strategy is guaranteed to look up in
-    # global_cache (every strategy evaluates it first), so its output is kept
-    # on disk rather than cleaned up like the rest of the screening samples.
     sample_dirs: set[Path] = set()
     rows: list[dict[str, float]] = []
     targets: list[float] = []
@@ -486,26 +333,9 @@ def _screen_plackett_burman(
     pb_successes: int,
     global_cache: dict[frozenset, DesignPoint],
 ) -> tuple[dict[str, list], dict[frozenset, DesignPoint]]:
-    """Applies Yi, Lilja & Hawkins' actual significance rule (Section 2,
-    Table 6) to the Plackett-Burman screen run by screen_param_space(method=
-    "plackett_burman"): a parameter is judged against the noise ceiling set
-    by the design's own dummy columns -- pb_dummy_effects_{asi,speedup} are
-    computed exactly like a real parameter's effect (sum of +-1 times each
-    run's *signed* deviation from baseline, per objective) but are tied to no
-    real factor, so their magnitude *is* what pure noise looks like at this
-    sample size, separately for each objective. A parameter is kept if
-    *either* objective's |effect| beats that objective's own largest dummy
-    effect -- a parameter that only moves ASI (or only speedup) still matters
-    to the Pareto front, and judging both objectives through one combined
-    unsigned distance let a single saturating parameter (e.g. rob_window_size
-    at its crippling low extreme) dominate every column's effect at once,
-    producing an unstable all-kept-or-all-pruned split instead of a real
-    ranking.
-
-    branch_predictor_type and its own predictor-specific knobs are never
-    part of this design (see module docstring) -- no evaluations are spent
-    judging them, but they're left untouched (full range, not pruned) here so
-    the search strategy that runs afterward can still explore them."""
+    """Keeps a parameter if either objective's |effect| beats that
+    objective's own dummy-column noise ceiling (Yi, Lilja & Hawkins Table 6).
+    branch_predictor_type and its own knobs are left untouched (unpruned)."""
     branch_predictor_params = {"branch_predictor_type"} | CONDITIONAL_PARAMS
     pruned: dict[str, list] = {p: v for p, v in param_space.items() if p not in branch_predictor_params}
 

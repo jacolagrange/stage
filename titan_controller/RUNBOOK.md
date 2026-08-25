@@ -305,15 +305,20 @@ callback. The practical options, roughly in order of effort:
 Start with (1) to get a working batch-generation loop end to end; only move
 to (3) once that's proven and the extra infrastructure is worth it.
 
-### What this does *not* do yet
+### Wired into spea2 — the `--titan` flag
 
-`entities_to_titan_experiment()` and the collection path above are a
-general "run a batch of entities on Titan, get raw measurements back"
-utility. Rewiring `spea2.py`/`greedy.py`/`mesmo.py`'s own search loops to
-actually call this instead of `evaluate_point()`'s one-at-a-time local
-calls is a separate, bigger change — each strategy's loop structure,
-caching, and resumability all currently assume synchronous one-point-at-a-time
-evaluation. That rewiring is future work, not done here.
+`spea2.py`'s own generation loop can use this batch path directly: pass
+`--strategy spea2 --titan --titan-benchmark-json ./c_bench.json` to
+`asi.py`, and every generation (both the initial random population and each
+subsequent one) is submitted as a single Titan batch job instead of
+evaluated one local Sniper run at a time. Cache hits (already-seen configs)
+never touch Titan. Without `--titan`, spea2 behaves exactly as before —
+sequential local `evaluate_point()` calls.
+
+See `--help`'s "titan strategy options" group for the rest (`--titan-dir`,
+`--titan-host-dir`, mount paths, `--titan-poll-interval`). `greedy.py` and
+`mesmo.py` still only evaluate locally — their loops aren't wired to this
+path.
 
 ## Adding or modifying a benchmark
 

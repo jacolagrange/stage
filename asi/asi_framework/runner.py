@@ -11,9 +11,7 @@ def run(
     cmd: list[str],
     design_knobs: dict = None,
 ) -> tuple[float, float, float]:
-    """
-    Run the Sniper simulator and return (area_mm2, peak_power_W, time_ns).
-    """
+    """Run the Sniper simulator and return (area_mm2, peak_power_W, time_ns)."""
     knobs = design_knobs or {}
     outputdir = Path(outputdir)
     outputdir.mkdir(parents=True, exist_ok=True)
@@ -58,23 +56,14 @@ def run(
 
 
 def parse_sniper_output(outputdir: Path, fail=None) -> tuple[float, float, float]:
-    """
-    Parses a completed Sniper/McPAT run's output directory into
-    (area_mm2, peak_power_W, time_ns) -- the same file formats regardless of
-    whether the run happened via run() above (a local subprocess) or was
-    collected back from a Titan job (titan_batch.py), so both share this one
-    parser instead of drifting apart.
-
-    fail: optional (exc_cls, msg) -> NoReturn callback for a caller that
-    wants extra context (e.g. run()'s stdout/stderr dump) on parse failure;
-    defaults to just `raise exc_cls(msg)`.
-    """
+    """Parses a completed Sniper/McPAT output directory into
+    (area_mm2, peak_power_W, time_ns). fail: optional (exc_cls, msg) ->
+    NoReturn callback for extra context on failure; defaults to raise."""
     outputdir = Path(outputdir)
     if fail is None:
         def fail(exc_cls, msg):
             raise exc_cls(msg)
 
-    # --- Parse power.txt (McPAT output) ---
     power_file = outputdir / "power.txt"
     if not power_file.exists():
         power_file = outputdir / "power" / "power.txt"
@@ -99,7 +88,6 @@ def parse_sniper_output(outputdir: Path, fail=None) -> tuple[float, float, float
     if area is None or peak_power is None:
         fail(ValueError, f"Could not parse Area/Peak Power from {power_file}")
 
-    # --- Parse sim.out (execution time) ---
     simout = outputdir / "sim.out"
     if not simout.exists():
         fail(FileNotFoundError, f"sim.out not found in {outputdir}")

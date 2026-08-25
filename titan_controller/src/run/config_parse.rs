@@ -23,7 +23,11 @@ impl ParsedArgs{
             match arg {
                 "-c" => {
                     if let Some(value) = iter.next() {
-                        configs.push(value.to_string());
+                        if let Some((key, val)) = value.split_once('=') {
+                            cmd_settings.insert(key.to_string(), val.to_string());
+                        } else {
+                            configs.push(value.to_string());
+                        }
                     }
                 }
                 "-g" => {
