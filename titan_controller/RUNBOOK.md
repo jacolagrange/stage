@@ -274,6 +274,11 @@ experiment = entities_to_titan_experiment(
 json.dump(experiment, open("gen_0.json", "w"))
 ```
 
+**`reference_config` must be a bare filename** (e.g. `"nehalem.cfg"`,
+`"gainestown.cfg"`), never a path relative to your own machine. It's
+resolved by `run-sniper`'s own `findconfig()`, which only searches the
+process's current directory and `$SNIPER_ROOT/config/`.
+
 Then submit/poll/collect exactly like any other experiment (see
 [Submitting a job](#submitting-a-job) /
 [Collecting results](#collecting-results)) — `--collect` symlinks every

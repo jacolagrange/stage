@@ -1,5 +1,4 @@
-"""COLE-style multi-objective evolutionary (SPEA2) search strategy. See
-README's "Strategy: spea2" section."""
+"""COLE-style multi-objective evolutionary (SPEA2) search strategy."""
 import random
 from dataclasses import dataclass
 from pathlib import Path
@@ -8,45 +7,18 @@ from typing import Any, ClassVar
 from .models import DesignPoint
 from .config import (
     PARAM_SPACE, DEFAULT_ALPHA, DEFAULTS, DEFAULT_BRANCH_PREDICTOR_TYPE,
-    BRANCH_PREDICTOR_PARAMS, CONDITIONAL_PARAMS, active_params,
+    BRANCH_PREDICTOR_PARAMS, CONDITIONAL_PARAMS,
 )
-from .greedy import (
-    evaluate_point, dominates, update_pareto_front, print_pareto_table,
-    print_evaluated_point, params_key, compute_baseline, hypervolume,
-)
+from .metrics import dominates, update_pareto_front, params_key, hypervolume, has_converged
+from .display import print_pareto_table, print_evaluated_point
+from .evaluation import compute_baseline, evaluate_and_print
+from .search_ops import random_entity, random_variant, modified_params
 from . import titan_batch
 from .plot import plot_pareto_front_on_asi, plot_pareto_fronts_on_asi, plot_hv_vs_simulations
 from .state import (
-    point_to_dict, point_from_dict, state_path, write_json_atomic, read_raw_state,
+    SearchStateBase, point_to_dict, point_from_dict, state_path,
     cleanup_dirs, rng_state_to_json, rng_state_from_json,
 )
-
-
-def _random_entity(rng: random.Random) -> dict[str, Any]:
-    """A fully-specified configuration: one value per PARAM_SPACE parameter
-    relevant to the randomly chosen branch predictor type."""
-    entity = {
-        param: rng.choice(values)
-        for param, values in PARAM_SPACE.items()
-        if param not in CONDITIONAL_PARAMS
-    }
-    for param in BRANCH_PREDICTOR_PARAMS.get(entity["branch_predictor_type"], ()):
-        entity[param] = rng.choice(PARAM_SPACE[param])
-    return entity
-
-
-def _mutate(entity: dict[str, Any], rng: random.Random) -> dict[str, Any]:
-    """Randomly reassign a single active parameter to a new candidate value."""
-    child = dict(entity)
-    bp_type = entity.get("branch_predictor_type", DEFAULTS.get("branch_predictor_type", DEFAULT_BRANCH_PREDICTOR_TYPE))
-    param = rng.choice(sorted(active_params(PARAM_SPACE, bp_type)))
-    child[param] = rng.choice(PARAM_SPACE[param])
-    if param == "branch_predictor_type":
-        for stale in CONDITIONAL_PARAMS - set(BRANCH_PREDICTOR_PARAMS.get(child[param], ())):
-            child.pop(stale, None)
-        for new_param in BRANCH_PREDICTOR_PARAMS.get(child[param], ()):
-            child[new_param] = rng.choice(PARAM_SPACE[new_param])
-    return child
 
 
 def _crossover(a: dict[str, Any], b: dict[str, Any], rng: random.Random) -> dict[str, Any]:
@@ -64,10 +36,6 @@ def _crossover(a: dict[str, Any], b: dict[str, Any], rng: random.Random) -> dict
         candidates = [d[param] for d, t in ((a, a_type), (b, b_type)) if t == bp_type and param in d]
         child[param] = rng.choice(candidates) if candidates else rng.choice(PARAM_SPACE[param])
     return child
-
-
-def _modified_params(params: dict[str, Any]) -> set[str]:
-    return {p for p, v in params.items() if v != DEFAULTS[p]}
 
 
 def _normalized_objectives(points: list[DesignPoint]) -> dict[int, tuple[float, float]]:
@@ -164,23 +132,11 @@ def _make_mating_pool(
     return pool
 
 
-def _has_converged(hv_history: list[float], patience: int, rel_tol: float = 1e-3) -> bool:
-    """True if hypervolume hasn't meaningfully improved in the last patience generations."""
-    if len(hv_history) <= patience:
-        return False
-    best_before = max(hv_history[:-patience])
-    recent_best = max(hv_history[-patience:])
-    return recent_best <= best_before * (1 + rel_tol)
-
-
 @dataclass
-class Spea2SearchState:
+class Spea2SearchState(SearchStateBase):
     """Resumable snapshot of an in-progress SPEA2/COLE search, checkpointed to JSON."""
     STRATEGY: ClassVar[str] = "spea2"
 
-    reference_config: str
-    benchmarks: dict[str, list[str]]
-    alpha: float
     generation: int
     baseline: DesignPoint
     global_cache: dict[frozenset, DesignPoint]
@@ -194,15 +150,10 @@ class Spea2SearchState:
     rng_state: list
     sniper_runs: int
     sniper_invocations: int
-    param_space: dict[str, list]
 
-    def matches(self, reference_config: str, benchmarks: dict[str, list[str]], alpha: float) -> bool:
-        return (
-            self.reference_config == str(reference_config)
-            and self.benchmarks == benchmarks
-            and self.alpha == alpha
-            and self.param_space == PARAM_SPACE
-        )
+    @staticmethod
+    def _current_param_space() -> dict[str, list]:
+        return PARAM_SPACE
 
     def to_dict(self) -> dict:
         return {
@@ -250,53 +201,6 @@ class Spea2SearchState:
             param_space=d.get("param_space", {}),
         )
 
-    def save(self, outputdir: Path) -> None:
-        write_json_atomic(state_path(outputdir), self.to_dict())
-
-    @classmethod
-    def load(cls, outputdir: Path) -> "Spea2SearchState | None":
-        raw = read_raw_state(outputdir)
-        if raw is None:
-            return None
-        found = raw.get("strategy", "greedy")
-        if found != cls.STRATEGY:
-            print(f"Saved search state at {state_path(outputdir)} was written by strategy "
-                  f"'{found}', not '{cls.STRATEGY}' — starting fresh.\n")
-            return None
-        return cls.from_dict(raw)
-
-
-def _evaluate_entity(
-    params: dict[str, Any], out: Path, reference_config: str, sniper: Path, benchmarks: dict[str, list[str]],
-    baseline: DesignPoint, alpha: float, global_cache: dict[frozenset, DesignPoint], prefix: str,
-) -> tuple[DesignPoint | None, bool, int]:
-    point, ran, invocations = evaluate_point(params, _modified_params(params), out, reference_config, sniper, benchmarks, baseline, alpha, global_cache)
-    if point is not None:
-        print_evaluated_point(params, point, prefix=prefix)
-    return point, ran, invocations
-
-
-def _titan_config(
-    titan: bool, outputdir: Path, titan_benchmark_json: str | None, titan_dir: str | None,
-    titan_host_dir: str | None, titan_sniper_mount: str, titan_benchmarks_mount: str,
-    titan_poll_interval: float,
-) -> dict[str, Any] | None:
-    """None when titan=False -- callers fall back to local per-entity
-    evaluation, unchanged."""
-    if not titan:
-        return None
-    if not titan_benchmark_json:
-        raise ValueError("titan=True requires titan_benchmark_json (the titan_controller "
-                          "benchmark JSON covering the same benchmark names given via --).")
-    return {
-        "titan_controller_dir": Path(titan_dir) if titan_dir else Path(__file__).resolve().parents[2] / "titan_controller",
-        "benchmark_json_path": titan_benchmark_json,
-        "host_destination_path": Path(titan_host_dir) if titan_host_dir else outputdir / "titan",
-        "sniper_mount": titan_sniper_mount,
-        "benchmarks_mount": titan_benchmarks_mount,
-        "poll_interval": titan_poll_interval,
-    }
-
 
 def _evaluate_populations(
     populations_params: list[list[dict[str, Any]]],
@@ -319,7 +223,7 @@ def _evaluate_populations(
             pop_points = []
             for ent_idx, params in enumerate(entity_params):
                 out = outputdir / f"{out_prefix}_pop{pop_idx}_ent{ent_idx}"
-                point, ran, inv = _evaluate_entity(
+                point, ran, inv = evaluate_and_print(
                     params, out, reference_config, sniper, benchmarks, baseline, alpha, global_cache,
                     prefix=f"[pop{pop_idx}] ",
                 )
@@ -331,7 +235,7 @@ def _evaluate_populations(
         return pop_points_list, runs, invocations
 
     flat = [
-        (pop_idx, params, outputdir / f"{out_prefix}_pop{pop_idx}_ent{ent_idx}", _modified_params(params))
+        (pop_idx, params, outputdir / f"{out_prefix}_pop{pop_idx}_ent{ent_idx}", modified_params(params))
         for pop_idx, entity_params in enumerate(populations_params)
         for ent_idx, params in enumerate(entity_params)
     ]
@@ -395,16 +299,21 @@ def explore_pareto_front_spea2(
     titan_poll_interval: float = 30.0,
 ) -> list[DesignPoint]:
     """COLE-style multi-objective evolutionary (SPEA2) exploration of the ASI
-    versus speedup design space; see README's "Strategy: spea2" section.
+    versus speedup design space.
 
-    initial_cache seeds global_cache on a fresh start, ignored when resuming.
-    seed_entities replaces generation 0's random population with a
-    caller-supplied list (round-robined across populations), used by
-    hybrid.py to seed SPEA2 from another strategy's front. preeval_runs/
-    preeval_invocations attribute Sniper cost already spent before this call
-    (e.g. screening) into generation 0's own totals.
+    Generation 0's population depends on how this is called:
+      - hybrid + preeval: seeded from MESMO's final front (itself started
+        from the preeval cache) -- no random fill.
+      - hybrid only: seeded from MESMO's final front (grown from a random
+        initial design) -- no random fill.
+      - preeval only (no hybrid): seeded directly from the preeval cache's
+        points -- no random fill.
+      - neither: baseline + randomly generated entities.
+    Either way, initial_cache primes global_cache so nothing gets
+    re-simulated, and preeval_runs/preeval_invocations fold pre-spent Sniper
+    cost into generation 0's own totals.
     """
-    titan_config = _titan_config(
+    titan_config = titan_batch.build_config(
         titan, outputdir, titan_benchmark_json, titan_dir, titan_host_dir,
         titan_sniper_mount, titan_benchmarks_mount, titan_poll_interval,
     )
@@ -457,7 +366,7 @@ def explore_pareto_front_spea2(
             if seed_entities:
                 entity_params = [dict(DEFAULTS)] + seed_partitions[pop_idx]
             else:
-                fill = [_random_entity(rng) for _ in range(max(0, population_size - len(seed_prefix)))]
+                fill = [random_entity(rng, PARAM_SPACE) for _ in range(max(0, population_size - len(seed_prefix)))]
                 entity_params = (seed_prefix + fill)[:population_size]
             populations_params.append(entity_params)
 
@@ -495,6 +404,10 @@ def explore_pareto_front_spea2(
         print_pareto_table(state.pareto_front)
         print(f"  Ran sniper {runs_this_gen} time{'s' if runs_this_gen != 1 else ''} this generation "
               f"({state.sniper_runs} total).")
+        plot_pareto_front_on_asi(
+            state.pareto_front, title="ASI Pareto Front (generation 0)",
+            save_path=outputdir / "pareto_gen0.png", show=False,
+        )
         print()
 
     baseline_dir = state.baseline.output_path
@@ -510,7 +423,7 @@ def explore_pareto_front_spea2(
                 a, b = (rng.sample(mating_pool, 2) if len(mating_pool) >= 2 else (mating_pool[0], mating_pool[0]))
                 child = _crossover(a.params, b.params, rng) if rng.random() < p_crossover else dict(a.params)
                 if rng.random() < p_mutation:
-                    child = _mutate(child, rng)
+                    child = random_variant(child, rng, PARAM_SPACE)
                 children.append(child)
             next_populations.append(children)
 
@@ -547,13 +460,17 @@ def explore_pareto_front_spea2(
         print_pareto_table(state.pareto_front)
         print(f"  Ran sniper {runs_this_gen} time{'s' if runs_this_gen != 1 else ''} this generation "
               f"({state.sniper_runs} total).")
+        plot_pareto_front_on_asi(
+            state.pareto_front, title=f"ASI Pareto Front (generation {generation})",
+            save_path=outputdir / f"pareto_gen{generation}.png", show=False,
+        )
         print()
 
         state.generation = generation
         state.rng_state = rng_state_to_json(rng)
         state.save(outputdir)
 
-        if _has_converged(state.hv_history, patience):
+        if has_converged(state.hv_history, patience):
             print(f"  No hypervolume improvement for {patience} generations — converged.\n")
             break
 

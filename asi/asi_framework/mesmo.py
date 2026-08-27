@@ -1,7 +1,7 @@
 """MESMO (Max-value Entropy Search for Multi-objective Optimization)
-Bayesian-optimization search strategy. See README's "Strategy: mesmo"
-section; adapted from Belakaria, Deshwal & Doppa, "Max-value Entropy Search
-for Multi-Objective Bayesian Optimization" (NeurIPS'19 / JAIR'21)."""
+Bayesian-optimization search strategy; adapted from Belakaria, Deshwal &
+Doppa, "Max-value Entropy Search for Multi-Objective Bayesian Optimization"
+(NeurIPS'19 / JAIR'21)."""
 import random
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,49 +11,17 @@ import numpy as np
 from scipy.stats import norm
 
 from .models import DesignPoint
-from .config import (
-    PARAM_SPACE, DEFAULT_ALPHA, DEFAULTS, BRANCH_PREDICTOR_PARAMS, CONDITIONAL_PARAMS,
-    DEFAULT_BRANCH_PREDICTOR_TYPE, active_params,
-)
-from .greedy import (
-    evaluate_point, update_pareto_front, print_pareto_table,
-    print_evaluated_point, params_key, compute_baseline, hypervolume,
-)
+from .config import PARAM_SPACE, DEFAULT_ALPHA, DEFAULTS
+from .metrics import update_pareto_front, params_key, hypervolume, has_converged
+from .display import print_pareto_table, print_evaluated_point
+from .evaluation import compute_baseline, evaluate_and_print
+from .search_ops import random_entity, random_variant, modified_params
+from . import titan_batch
 from .plot import plot_pareto_front_on_asi, plot_pareto_fronts_on_asi, plot_hv_vs_simulations
 from .state import (
-    point_to_dict, point_from_dict, state_path, write_json_atomic, read_raw_state,
+    SearchStateBase, point_to_dict, point_from_dict, state_path,
     cleanup_dirs, rng_state_to_json, rng_state_from_json,
 )
-
-
-def _random_entity(rng: random.Random) -> dict[str, Any]:
-    """A fully-specified configuration, mirroring spea2._random_entity."""
-    entity = {
-        param: rng.choice(values)
-        for param, values in PARAM_SPACE.items()
-        if param not in CONDITIONAL_PARAMS
-    }
-    for param in BRANCH_PREDICTOR_PARAMS.get(entity["branch_predictor_type"], ()):
-        entity[param] = rng.choice(PARAM_SPACE[param])
-    return entity
-
-
-def _modified_params(params: dict[str, Any]) -> set[str]:
-    return {p for p, v in params.items() if v != DEFAULTS[p]}
-
-
-def _neighbor(entity: dict[str, Any], rng: random.Random) -> dict[str, Any]:
-    """One parameter of entity reassigned to a new value; mirrors spea2._mutate."""
-    child = dict(entity)
-    bp_type = entity.get("branch_predictor_type", DEFAULTS.get("branch_predictor_type", DEFAULT_BRANCH_PREDICTOR_TYPE))
-    param = rng.choice(sorted(active_params(PARAM_SPACE, bp_type)))
-    child[param] = rng.choice(PARAM_SPACE[param])
-    if param == "branch_predictor_type":
-        for stale in CONDITIONAL_PARAMS - set(BRANCH_PREDICTOR_PARAMS.get(child[param], ())):
-            child.pop(stale, None)
-        for new_param in BRANCH_PREDICTOR_PARAMS.get(child[param], ()):
-            child[new_param] = rng.choice(PARAM_SPACE[new_param])
-    return child
 
 
 _LOCAL_POOL_FRACTION = 0.5
@@ -72,7 +40,7 @@ def _candidate_pool(
     max_attempts = max(pool_size * 20, 200)
     num_local = int(pool_size * _LOCAL_POOL_FRACTION) if anchors else 0
     while len(pool) < pool_size and attempts < max_attempts:
-        entity = _neighbor(rng.choice(anchors), rng) if len(pool) < num_local else _random_entity(rng)
+        entity = random_variant(rng.choice(anchors), rng, PARAM_SPACE) if len(pool) < num_local else random_entity(rng, PARAM_SPACE)
         attempts += 1
         key = params_key(entity)
         if key in seen:
@@ -252,23 +220,11 @@ def _acquisition_scores(
     return total / num_mc_samples
 
 
-def _has_converged(hv_history: list[float], patience: int, rel_tol: float = 1e-3) -> bool:
-    """True if hypervolume hasn't meaningfully improved in the last patience iterations."""
-    if len(hv_history) <= patience:
-        return False
-    best_before = max(hv_history[:-patience])
-    recent_best = max(hv_history[-patience:])
-    return recent_best <= best_before * (1 + rel_tol)
-
-
 @dataclass
-class MesmoSearchState:
+class MesmoSearchState(SearchStateBase):
     """Resumable snapshot of an in-progress MESMO search, checkpointed to JSON."""
     STRATEGY: ClassVar[str] = "mesmo"
 
-    reference_config: str
-    benchmarks: dict[str, list[str]]
-    alpha: float
     iteration: int
     baseline: DesignPoint
     global_cache: dict[frozenset, DesignPoint]
@@ -280,15 +236,10 @@ class MesmoSearchState:
     rng_state: list
     sniper_runs: int
     sniper_invocations: int
-    param_space: dict[str, list]
 
-    def matches(self, reference_config: str, benchmarks: dict[str, list[str]], alpha: float) -> bool:
-        return (
-            self.reference_config == str(reference_config)
-            and self.benchmarks == benchmarks
-            and self.alpha == alpha
-            and self.param_space == PARAM_SPACE
-        )
+    @staticmethod
+    def _current_param_space() -> dict[str, list]:
+        return PARAM_SPACE
 
     def to_dict(self) -> dict:
         return {
@@ -332,30 +283,54 @@ class MesmoSearchState:
             param_space=d.get("param_space", {}),
         )
 
-    def save(self, outputdir: Path) -> None:
-        write_json_atomic(state_path(outputdir), self.to_dict())
 
-    @classmethod
-    def load(cls, outputdir: Path) -> "MesmoSearchState | None":
-        raw = read_raw_state(outputdir)
-        if raw is None:
-            return None
-        found = raw.get("strategy", "greedy")
-        if found != cls.STRATEGY:
-            print(f"Saved search state at {state_path(outputdir)} was written by strategy "
-                  f"'{found}', not '{cls.STRATEGY}' — starting fresh.\n")
-            return None
-        return cls.from_dict(raw)
+def _evaluate_candidates(
+    params_list: list[dict[str, Any]], out_prefix: str, reference_config: str, sniper: Path,
+    benchmarks: dict[str, list[str]], baseline: DesignPoint, alpha: float,
+    global_cache: dict[frozenset, DesignPoint], outputdir: Path, titan_config: dict[str, Any] | None, prefix: str,
+) -> tuple[list[DesignPoint], int, int]:
+    """Evaluates every candidate in params_list -- locally one at a time, or
+    (titan_config given) as one titan_batch job. Mirrors
+    spea2._evaluate_populations, flattened for mesmo's single list of
+    candidates per step (initial design, or one iteration's batch)."""
+    if titan_config is None:
+        evaluated: list[DesignPoint] = []
+        runs = invocations = 0
+        for idx, params in enumerate(params_list):
+            out = outputdir / f"{out_prefix}{idx}"
+            point, ran, inv = evaluate_and_print(
+                params, out, reference_config, sniper, benchmarks, baseline, alpha, global_cache, prefix=prefix,
+            )
+            runs += ran
+            invocations += inv
+            if point is not None:
+                evaluated.append(point)
+        return evaluated, runs, invocations
 
-
-def _evaluate_candidate(
-    params: dict[str, Any], out: Path, reference_config: str, sniper: Path, benchmarks: dict[str, list[str]],
-    baseline: DesignPoint, alpha: float, global_cache: dict[frozenset, DesignPoint], prefix: str,
-) -> tuple[DesignPoint | None, bool, int]:
-    point, ran, invocations = evaluate_point(params, _modified_params(params), out, reference_config, sniper, benchmarks, baseline, alpha, global_cache)
-    if point is not None:
-        print_evaluated_point(params, point, prefix=prefix)
-    return point, ran, invocations
+    flat = [
+        (params, outputdir / f"{out_prefix}{idx}", modified_params(params))
+        for idx, params in enumerate(params_list)
+    ]
+    results = titan_batch.evaluate_batch(
+        [(params, out, mod) for params, out, mod in flat],
+        reference_config, benchmarks, baseline, alpha, global_cache,
+        titan_controller_dir=titan_config["titan_controller_dir"],
+        benchmark_json_path=titan_config["benchmark_json_path"],
+        host_destination_path=titan_config["host_destination_path"] / out_prefix,
+        sniper_mount=titan_config["sniper_mount"],
+        benchmarks_mount=titan_config["benchmarks_mount"],
+        poll_interval=titan_config["poll_interval"],
+        job_name=f"asi_{out_prefix}",
+    )
+    evaluated = []
+    runs = invocations = 0
+    for (params, _out, _mod), (point, ran, inv) in zip(flat, results):
+        runs += ran
+        invocations += inv
+        if point is not None:
+            print_evaluated_point(params, point, prefix=prefix)
+            evaluated.append(point)
+    return evaluated, runs, invocations
 
 
 def explore_pareto_front_mesmo(
@@ -375,13 +350,28 @@ def explore_pareto_front_mesmo(
     hv_patience: int | None = None,
     seed: int = 0,
     initial_cache: dict[frozenset, DesignPoint] | None = None,
+    titan: bool = False,
+    titan_benchmark_json: str | None = None,
+    titan_dir: str | None = None,
+    titan_host_dir: str | None = None,
+    titan_sniper_mount: str = "/mnt/perflab/exascience/src/jaco_sniper",
+    titan_benchmarks_mount: str = "/mnt/perflab/exascience/src/jaco_benchmarks",
+    titan_poll_interval: float = 30.0,
 ) -> list[DesignPoint]:
     """MESMO Bayesian-optimization exploration of the ASI versus speedup
-    design space; see README's "Strategy: mesmo" section. hv_patience
-    defaults to None (disabled), unlike spea2's aggressive default, since a
+    design space. hv_patience defaults to None (disabled), unlike spea2's aggressive default, since a
     mesmo iteration can evaluate as few as one point (batch_size=1) -- too
     noisy a signal for a short patience window. initial_cache seeds
-    global_cache on a fresh start, ignored when resuming."""
+    global_cache on a fresh start, ignored when resuming. With titan=True,
+    the initial design and each iteration's batch_size candidates are
+    submitted as one titan_batch job instead of evaluated one at a time --
+    batch_size=1 (the default) gains nothing from titan past the initial
+    design, since there's only ever one candidate per iteration to batch."""
+    titan_config = titan_batch.build_config(
+        titan, outputdir, titan_benchmark_json, titan_dir, titan_host_dir,
+        titan_sniper_mount, titan_benchmarks_mount, titan_poll_interval,
+    )
+
     loaded = MesmoSearchState.load(outputdir)
     resumable = loaded is not None and loaded.matches(reference_config, benchmarks, alpha)
     if loaded is not None and not resumable:
@@ -424,20 +414,11 @@ def explore_pareto_front_mesmo(
         else:
             print(f"=== Initial design ({num_initial_points} points: baseline + "
                   f"{num_initial_points - 1} random configurations) ===")
-            initial_params = [dict(DEFAULTS)] + [_random_entity(rng) for _ in range(num_initial_points - 1)]
-            evaluated = []
-            runs_this_iter = 0
-            invocations_this_iter = 0
-            for idx, params in enumerate(initial_params):
-                out = outputdir / f"init{idx}"
-                point, ran, invocations = _evaluate_candidate(
-                    params, out, reference_config, sniper, benchmarks, baseline, alpha, global_cache,
-                    prefix="[mesmo] ",
-                )
-                runs_this_iter += ran
-                invocations_this_iter += invocations
-                if point is not None:
-                    evaluated.append(point)
+            initial_params = [dict(DEFAULTS)] + [random_entity(rng, PARAM_SPACE) for _ in range(num_initial_points - 1)]
+            evaluated, runs_this_iter, invocations_this_iter = _evaluate_candidates(
+                initial_params, "init", reference_config, sniper, benchmarks, baseline, alpha, global_cache,
+                outputdir, titan_config, prefix="[mesmo] ",
+            )
 
         pareto_front = update_pareto_front([], evaluated)
         hv_history = [hypervolume([baseline]), hypervolume(pareto_front)]
@@ -459,6 +440,10 @@ def explore_pareto_front_mesmo(
         print_pareto_table(state.pareto_front)
         print(f"  Ran sniper {runs_this_iter} time{'s' if runs_this_iter != 1 else ''} this step "
               f"({state.sniper_runs} total).")
+        plot_pareto_front_on_asi(
+            state.pareto_front, title="ASI Pareto Front (initial design)",
+            save_path=outputdir / "pareto_init.png", show=False,
+        )
         print()
 
     baseline_dir = state.baseline.output_path
@@ -490,20 +475,11 @@ def explore_pareto_front_mesmo(
 
         print(f"  Evaluating {len(chosen)} configuration(s) (top acquisition score of "
               f"{len(pool_params)} candidates)...")
-        evaluated = []
-        runs_this_iter = 0
-        invocations_this_iter = 0
-        for rank, idx in enumerate(chosen):
-            params = pool_params[int(idx)]
-            out = outputdir / f"iter{iteration}_cand{rank}"
-            point, ran, invocations = _evaluate_candidate(
-                params, out, reference_config, sniper, state.benchmarks, state.baseline, alpha, state.global_cache,
-                prefix="[mesmo] ",
-            )
-            runs_this_iter += ran
-            invocations_this_iter += invocations
-            if point is not None:
-                evaluated.append(point)
+        chosen_params = [pool_params[int(idx)] for idx in chosen]
+        evaluated, runs_this_iter, invocations_this_iter = _evaluate_candidates(
+            chosen_params, f"iter{iteration}_cand", reference_config, sniper, state.benchmarks, state.baseline,
+            alpha, state.global_cache, outputdir, titan_config, prefix="[mesmo] ",
+        )
         state.sniper_runs += runs_this_iter
         state.sniper_invocations += invocations_this_iter
 
@@ -526,13 +502,17 @@ def explore_pareto_front_mesmo(
         print_pareto_table(state.pareto_front)
         print(f"  Ran sniper {runs_this_iter} time{'s' if runs_this_iter != 1 else ''} this iteration "
               f"({state.sniper_runs} total).")
+        plot_pareto_front_on_asi(
+            state.pareto_front, title=f"ASI Pareto Front (iteration {iteration})",
+            save_path=outputdir / f"pareto_iter{iteration}.png", show=False,
+        )
         print()
 
         state.iteration = iteration
         state.rng_state = rng_state_to_json(rng)
         state.save(outputdir)
 
-        if hv_patience is not None and _has_converged(state.hv_history, hv_patience):
+        if hv_patience is not None and has_converged(state.hv_history, hv_patience):
             print(f"  No hypervolume improvement for {hv_patience} iterations — converged.\n")
             break
 

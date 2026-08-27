@@ -9,10 +9,34 @@ import time
 from pathlib import Path
 from typing import Any
 
+from .config import ROOT
 from .config_builder import build_runtime_config
-from .greedy import cached_point, finalize_point, params_key
+from .metrics import params_key
+from .evaluation import cached_point, finalize_point
 from .models import DesignPoint
 from .runner import parse_sniper_output
+
+
+def build_config(
+    titan: bool, outputdir: Path, titan_benchmark_json: str | None, titan_dir: str | None,
+    titan_host_dir: str | None, titan_sniper_mount: str, titan_benchmarks_mount: str,
+    titan_poll_interval: float,
+) -> dict[str, Any] | None:
+    """None when titan=False -- callers fall back to local per-entity
+    evaluation, unchanged. Shared by spea2.py, mesmo.py, screening.py."""
+    if not titan:
+        return None
+    if not titan_benchmark_json:
+        raise ValueError("titan=True requires titan_benchmark_json (the titan_controller "
+                          "benchmark JSON covering the same benchmark names given via --).")
+    return {
+        "titan_controller_dir": Path(titan_dir) if titan_dir else ROOT / "titan_controller",
+        "benchmark_json_path": titan_benchmark_json,
+        "host_destination_path": Path(titan_host_dir) if titan_host_dir else outputdir / "titan",
+        "sniper_mount": titan_sniper_mount,
+        "benchmarks_mount": titan_benchmarks_mount,
+        "poll_interval": titan_poll_interval,
+    }
 
 
 def _entity_overrides(entity: dict[str, Any], reference_config: str) -> str:
@@ -36,7 +60,6 @@ def entities_to_titan_experiment(
     job_name: str = "asi_batch",
     sniper_mount: str = "/mnt/perflab/exascience/src/jaco_sniper",
     benchmarks_mount: str = "/mnt/perflab/exascience/src/jaco_benchmarks",
-    icount_stop: int = 2_000_000,
     core_per_experiment: int = 1,
     mem_per_core: int = 2048,
     vm_name: str = "sniper2404",
@@ -68,7 +91,7 @@ def entities_to_titan_experiment(
             "benchmarks_mount": benchmarks_mount,
         },
         "sniper_parameters": {
-            "arguments": ["-c", str(reference_config), "-s", f"stop-by-icount:{icount_stop}", "{overrides}"],
+            "arguments": ["-c", str(reference_config), "{overrides}"],
             "parameters": parameters,
         },
         "host_destination_path": host_destination_path,

@@ -2,10 +2,13 @@ import argparse
 import contextlib
 import inspect
 import sys
+import time
 from pathlib import Path
 
 from .config import RUN_SNIPER, DEFAULT_OUTPUT_DIR, DEFAULT_ALPHA, DEFAULTS
 from . import greedy, spea2, mesmo, screening
+from .metrics import params_key
+from .display import print_pareto_table
 from .strategies import STRATEGIES
 from .plot import plot_pareto_front_on_asi
 
@@ -49,7 +52,10 @@ def build_parser() -> argparse.ArgumentParser:
                "to search across multiple benchmarks at once.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--config", required=True, help="Reference Sniper config file.")
+    parser.add_argument("--config", required=True,
+                         help="Reference Sniper config file -- bare filename (e.g. 'gainestown.cfg'), "
+                              "never a path relative to this machine; run-sniper resolves it itself "
+                              "via its own curdir/$SNIPER_ROOT/config search.")
     parser.add_argument("--sniper", default=str(RUN_SNIPER), help="Path to run-sniper.")
     parser.add_argument("--outputdir", "-d", default=str(DEFAULT_OUTPUT_DIR), help="Output directory.")
     parser.add_argument("--alpha", type=float, default=DEFAULT_ALPHA,
@@ -90,11 +96,14 @@ def build_parser() -> argparse.ArgumentParser:
     spea2_group.add_argument("--seed", type=int, default=0,
                               help="RNG seed for reproducible runs (spea2, mesmo).")
 
-    titan_group = parser.add_argument_group("titan strategy options (spea2 only)")
+    titan_group = parser.add_argument_group("titan strategy options (spea2, mesmo, hybrid, pre-evaluation screening)")
     titan_group.add_argument("--titan", action="store_true",
-                              help="Evaluate each spea2 generation as one batch job on Titan "
-                                   "(titan_controller) instead of one local Sniper run at a time. "
-                                   "Requires --titan-benchmark-json.")
+                              help="Evaluate each spea2 generation, or each mesmo initial-design/"
+                                   "iteration batch, as one batch job on Titan (titan_controller) "
+                                   "instead of one local Sniper run at a time. For mesmo, only the "
+                                   "initial design and iterations with --batch-size > 1 have more "
+                                   "than one candidate to batch. hybrid forwards this to both its "
+                                   "mesmo and spea2 phases. Requires --titan-benchmark-json.")
     titan_group.add_argument("--titan-benchmark-json", dest="titan_benchmark_json",
                               help="titan_controller benchmark JSON covering the same benchmark "
                                    "names given after '--' (required with --titan).")
@@ -214,10 +223,20 @@ def _benchmark_name(cmd: list[str], used: set[str]) -> str:
     return name
 
 
+def _format_elapsed(seconds: float) -> str:
+    total = int(seconds)
+    hours, remainder = divmod(total, 3600)
+    minutes, secs = divmod(remainder, 60)
+    return f"{hours:d}:{minutes:02d}:{secs:02d}"
+
+
 def main() -> int:
+    start_time = time.monotonic()
     parser = build_parser()
 
     argv = sys.argv[1:]
+    if "-h" in argv or "--help" in argv:
+        parser.parse_args(argv)
     if "--" not in argv:
         parser.error("benchmark command(s) must be separated with '--', "
                       "e.g. asi.py --config c.cfg --log --save-plot -- ./bench "
@@ -296,6 +315,13 @@ def main() -> int:
                     keep_threshold=args.preeval_threshold,
                     seed=args.preeval_seed,
                     method=args.preeval_method,
+                    titan=args.titan,
+                    titan_benchmark_json=args.titan_benchmark_json,
+                    titan_dir=args.titan_dir,
+                    titan_host_dir=args.titan_host_dir,
+                    titan_sniper_mount=args.titan_sniper_mount,
+                    titan_benchmarks_mount=args.titan_benchmarks_mount,
+                    titan_poll_interval=args.titan_poll_interval,
                 )
             greedy.PARAM_SPACE = pruned_param_space
             spea2.PARAM_SPACE = pruned_param_space
@@ -303,7 +329,7 @@ def main() -> int:
             base_kwargs["initial_cache"] = preeval_cache
 
             if "seed_entities" in accepted:
-                baseline_key = greedy.params_key(DEFAULTS)
+                baseline_key = params_key(DEFAULTS)
                 preeval_points = [p for k, p in preeval_cache.items() if k != baseline_key]
                 base_kwargs["seed_entities"] = [dict(p.params) for p in preeval_points]
                 if preeval_points and "preeval_runs" in accepted:
@@ -313,7 +339,8 @@ def main() -> int:
         front = strategy.run(**base_kwargs, **extra_kwargs)
 
         print("=== Final Pareto Front ===")
-        greedy.print_pareto_table(front)
+        print_pareto_table(front)
+        print(f"\nTotal elapsed time: {_format_elapsed(time.monotonic() - start_time)}")
 
     plot_pareto_front_on_asi(front, title="ASI Pareto Front", save_path=save_plot, show=False)
     return 0

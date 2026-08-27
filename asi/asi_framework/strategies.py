@@ -1,5 +1,4 @@
-"""Registry of available search strategies -- see README's "Extending:
-adding a new strategy" section."""
+"""Registry of available search strategies"""
 from dataclasses import dataclass
 from typing import Callable
 

@@ -1,27 +1,18 @@
 """Parameter-importance pre-screen (perceptron or Plackett-Burman), run once
-before any search strategy. See README's "Optional pre-processing:
-parameter screening" section."""
+before any search strategy."""
 import json
 import random
 from pathlib import Path
 from typing import Any
 
-from .config import PARAM_SPACE, DEFAULTS, BRANCH_PREDICTOR_PARAMS, CONDITIONAL_PARAMS
+from .config import PARAM_SPACE, DEFAULTS, CONDITIONAL_PARAMS
 from .models import DesignPoint
-from .greedy import evaluate_point, params_key, print_evaluated_point, compute_baseline
+from .metrics import params_key
+from .evaluation import evaluate_point, compute_baseline
+from .display import print_evaluated_point
+from .search_ops import random_entity
 from .state import cleanup_dirs, write_json_atomic, point_to_dict, point_from_dict
-
-
-def _random_entity(rng: random.Random, param_space: dict[str, list]) -> dict[str, Any]:
-    """A fully-specified configuration, mirroring spea2._random_entity."""
-    entity = {
-        param: rng.choice(values)
-        for param, values in param_space.items()
-        if param not in CONDITIONAL_PARAMS
-    }
-    for param in BRANCH_PREDICTOR_PARAMS.get(entity["branch_predictor_type"], ()):
-        entity[param] = rng.choice(param_space[param])
-    return entity
+from . import titan_batch
 
 
 def _encode_features(params: dict[str, Any], param_space: dict[str, list]) -> dict[str, float]:
@@ -214,11 +205,18 @@ def screen_param_space(
     keep_threshold: float = 0.1,
     seed: int = 0,
     method: str = "perceptron",
+    titan: bool = False,
+    titan_benchmark_json: str | None = None,
+    titan_dir: str | None = None,
+    titan_host_dir: str | None = None,
+    titan_sniper_mount: str = "/mnt/perflab/exascience/src/jaco_sniper",
+    titan_benchmarks_mount: str = "/mnt/perflab/exascience/src/jaco_benchmarks",
+    titan_poll_interval: float = 30.0,
 ) -> tuple[dict[str, list], dict[frozenset, DesignPoint]]:
     """Returns (pruned_param_space, global_cache) -- pruned_param_space
     reduces every unimportant parameter to its default-only value; method
-    is "perceptron" or "plackett_burman" (see README). Cached to disk and
-    reused on a later call with matching identity (_screen_identity)."""
+    is "perceptron" or "plackett_burman". Cached to disk and reused on a
+    later call with matching identity (_screen_identity)."""
     identity = _screen_identity(reference_config, benchmarks, alpha, method, num_samples, keep_threshold, seed)
     cached = _load_screen_cache(outputdir, identity)
     if cached is not None:
@@ -240,7 +238,7 @@ def screen_param_space(
               f"branch_predictor_type and its own knobs are never varied in this mode) ===")
     else:
         n_dummy_columns = 0
-        entities = [_random_entity(rng, PARAM_SPACE) for _ in range(num_samples)]
+        entities = [random_entity(rng, PARAM_SPACE) for _ in range(num_samples)]
         print(f"=== Pre-evaluation screening ({num_samples} samples) ===")
 
     print("Running baseline...")
@@ -257,13 +255,35 @@ def screen_param_space(
     pb_dummy_effects_speedup: list[float] = [0.0] * n_dummy_columns
     pb_successes = 0
 
+    entries = []
     for i, params in enumerate(entities):
         modified = {p for p, v in params.items() if v != DEFAULTS[p]}
         out = outputdir / "preeval" / f"sample{i}"
         sample_dirs.add(out)
-        point, _, _ = evaluate_point(
-            params, modified, out, reference_config, sniper, benchmarks, baseline, alpha, global_cache,
-        )
+        entries.append((params, out, modified))
+
+    titan_config = titan_batch.build_config(
+        titan, outputdir, titan_benchmark_json, titan_dir, titan_host_dir,
+        titan_sniper_mount, titan_benchmarks_mount, titan_poll_interval,
+    )
+    if titan_config is None:
+        points = [
+            evaluate_point(params, modified, out, reference_config, sniper, benchmarks, baseline, alpha, global_cache)[0]
+            for params, out, modified in entries
+        ]
+    else:
+        points = [point for point, _, _ in titan_batch.evaluate_batch(
+            entries, reference_config, benchmarks, baseline, alpha, global_cache,
+            titan_controller_dir=titan_config["titan_controller_dir"],
+            benchmark_json_path=titan_config["benchmark_json_path"],
+            host_destination_path=titan_config["host_destination_path"] / "preeval",
+            sniper_mount=titan_config["sniper_mount"],
+            benchmarks_mount=titan_config["benchmarks_mount"],
+            poll_interval=titan_config["poll_interval"],
+            job_name="asi_preeval",
+        )]
+
+    for i, ((params, _out, _modified), point) in enumerate(zip(entries, points)):
         if point is None:
             continue
         print_evaluated_point(params, point, prefix="[preeval] ")

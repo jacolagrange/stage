@@ -1,262 +1,24 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import ClassVar
 
 from .models import DesignPoint
-from .runner import run
 from .config import (
     PARAM_SPACE, DEFAULT_ALPHA, DEFAULTS, DEFAULT_BRANCH_PREDICTOR_TYPE,
     BRANCH_PREDICTOR_PARAMS, CONDITIONAL_PARAMS, active_params,
 )
+from .metrics import params_key, hypervolume, update_pareto_front
+from .evaluation import compute_baseline, evaluate_point
+from .display import print_evaluated_point, print_pareto_table
 from .plot import plot_pareto_front_on_asi, plot_pareto_fronts_on_asi, plot_hv_vs_simulations
-from .state import (
-    point_to_dict, point_from_dict, state_path, write_json_atomic, read_raw_state, cleanup_dirs,
-)
-
-_SHORT = {
-    "l1i_size": "l1i", "l1d_size": "l1d", "l2_size": "l2", "l3_size": "l3",
-    "l1i_assoc": "l1ia", "l1d_assoc": "l1da", "l2_assoc": "l2a", "l3_assoc": "l3a",
-    "branch_predictor_type": "bpt", "branch_predictor_size": "bp",
-    "num_history_registers": "nhist", "nn_batch_length": "nnbl", "nn_learning_rate": "nnlr",
-    "rob_window_size": "robw", "rob_dispatch_width": "robd",
-    "rob_commit_width": "robc",
-    "rob_outstanding_loads": "ld_out", "rob_outstanding_stores": "st_out",
-}
-
-
-def fmt_params(params: dict[str, Any]) -> str:
-    """Renders a point's (possibly sparse) params dict for terminal output.
-    branch_predictor_type is always shown; every other key only when it
-    deviates from its default."""
-    if not params or all(params[p] == DEFAULTS[p] for p in params):
-        return "baseline"
-    bp_type = params.get("branch_predictor_type", DEFAULTS.get("branch_predictor_type", DEFAULT_BRANCH_PREDICTOR_TYPE))
-    shown = {**params, "branch_predictor_type": bp_type}
-    return " ".join(f"{_SHORT.get(k, k)}={v}" for k, v in sorted(shown.items()))
-
-
-def sustainability_label(asi: float, speedup: float) -> str:
-    tn = 1.0 / speedup if speedup > 0 else float("inf")
-    upper = max(1.0, tn)
-    lower = min(1.0, tn)
-    if asi > upper:
-        return "Strongly Sust."
-    if asi < lower:
-        return "Unsustainable"
-    if abs(asi - 1.0) < 1e-9 and abs(speedup - 1.0) < 1e-9:
-        return "Reference"
-    if asi < 1.0:
-        return "Weakly S-FW"
-    return "Weakly S-FT"
-
-
-def print_evaluated_point(params: dict[str, Any], point: DesignPoint, prefix: str = "") -> None:
-    label = sustainability_label(point.asi, point.speedup)
-    breakdown = ""
-    if len(point.per_benchmark) > 1:
-        breakdown = "  [" + ", ".join(
-            f"{name}={data['speedup']:.2f}x" for name, data in point.per_benchmark.items()
-        ) + "]"
-    print(
-        f"  {prefix}{fmt_params(params):<32}"
-        f"  ASI={point.asi:7.4f}  S={point.speedup:6.4f}"
-        f"  A={point.area:7.2f}  P={point.peak_power:6.2f}  [{label}]{breakdown}"
-    )
-
-
-def calculate_asi(Ay: float, Ax: float, Py: float, Px: float, alpha: float) -> float:
-    return (1 - alpha * (Ax / Ay)) / ((1 - alpha) * (Px / Py))
-
-
-def geomean(values: list[float]) -> float:
-    product = 1.0
-    for v in values:
-        product *= v
-    return product ** (1.0 / len(values))
-
-
-def dominates(a: DesignPoint, b: DesignPoint) -> bool:
-    return (
-        a.asi >= b.asi and a.speedup >= b.speedup
-        and (a.asi > b.asi or a.speedup > b.speedup)
-    )
-
-
-def params_key(params: dict[str, Any]) -> frozenset:
-    return frozenset(params.items())
-
-
-def evaluate_point(
-    params: dict[str, Any],
-    modified_params: set[str],
-    output_path: Path,
-    reference_config: str,
-    sniper: Path,
-    benchmarks: dict[str, list[str]],
-    baseline: DesignPoint,
-    alpha: float,
-    global_cache: dict[frozenset, DesignPoint],
-) -> tuple[DesignPoint | None, bool, int]:
-    """Returns (point, ran_sniper, sniper_invocations) -- see README's
-    "evaluate_point()" bullet in Shared building blocks for their meaning."""
-    key = params_key(params)
-    cached = cached_point(key, modified_params, global_cache)
-    if cached is not None:
-        return cached, False, 0
-
-    areas: list[float] = []
-    powers: list[float] = []
-    per_benchmark: dict[str, dict[str, float]] = {}
-    sniper_invocations = 0
-    for name, cmd in benchmarks.items():
-        sniper_invocations += 1
-        try:
-            area, peak_power, time = run(reference_config, sniper, output_path / name, cmd, params)
-        except Exception as exc:
-            print(f"    FAILED ({output_path.name}/{name}): {exc}")
-            return None, True, sniper_invocations
-        areas.append(area)
-        powers.append(peak_power)
-        per_benchmark[name] = {"time": time}
-
-    point = finalize_point(params, modified_params, output_path, per_benchmark, areas, powers, baseline, alpha, global_cache, key)
-    return point, True, sniper_invocations
-
-
-def cached_point(
-    key: frozenset, modified_params: set[str], global_cache: dict[frozenset, DesignPoint],
-) -> DesignPoint | None:
-    """Reconstructs a DesignPoint from a global_cache hit with this call's own
-    modified_params (which vary per caller even for the same params key).
-    Shared by evaluate_point() and titan_batch.py's batch evaluator."""
-    if key not in global_cache:
-        return None
-    cached = global_cache[key]
-    return DesignPoint(
-        params=cached.params,
-        area=cached.area,
-        peak_power=cached.peak_power,
-        time=cached.time,
-        asi=cached.asi,
-        speedup=cached.speedup,
-        modified_params=modified_params,
-        output_path=cached.output_path,
-        per_benchmark=cached.per_benchmark,
-    )
-
-
-def finalize_point(
-    params: dict[str, Any],
-    modified_params: set[str],
-    output_path: Path,
-    per_benchmark: dict[str, dict[str, float]],
-    areas: list[float],
-    powers: list[float],
-    baseline: DesignPoint,
-    alpha: float,
-    global_cache: dict[frozenset, DesignPoint],
-    key: frozenset,
-) -> DesignPoint:
-    """Aggregates one fully-measured point's per-benchmark (area, power, time)
-    into a DesignPoint (mean area/power, ASI, geomean speedup) and caches it.
-    Shared by evaluate_point() (local runs) and titan_batch.py (Titan-collected
-    runs), so both paths produce identical DesignPoints from the same raw
-    measurements."""
-    for name, data in per_benchmark.items():
-        data["speedup"] = baseline.per_benchmark[name]["time"] / data["time"]
-
-    point = DesignPoint(
-        params=params,
-        area=sum(areas) / len(areas),
-        peak_power=sum(powers) / len(powers),
-        time=sum(data["time"] for data in per_benchmark.values()) / len(per_benchmark),
-        modified_params=modified_params,
-        output_path=output_path,
-        per_benchmark=per_benchmark,
-    )
-    point.asi = calculate_asi(baseline.area, point.area, baseline.peak_power, point.peak_power, alpha)
-    point.speedup = geomean([data["speedup"] for data in per_benchmark.values()])
-    global_cache[key] = point
-    return point
-
-
-def compute_baseline(
-    reference_config: str,
-    sniper: Path,
-    baseline_dir: Path,
-    benchmarks: dict[str, list[str]],
-) -> DesignPoint:
-    """Runs every benchmark once with every parameter forced to DEFAULTS to
-    get the reference-config baseline DesignPoint (asi=speedup=1.0)."""
-    areas: list[float] = []
-    powers: list[float] = []
-    per_benchmark: dict[str, dict[str, float]] = {}
-    for name, cmd in benchmarks.items():
-        try:
-            area, peak_power, time = run(reference_config, sniper, baseline_dir / name, cmd, DEFAULTS)
-        except Exception as exc:
-            raise RuntimeError(f"Baseline run failed ({name}): {exc}") from exc
-        areas.append(area)
-        powers.append(peak_power)
-        per_benchmark[name] = {"time": time, "speedup": 1.0}
-
-    return DesignPoint(
-        params=dict(DEFAULTS), area=sum(areas) / len(areas), peak_power=sum(powers) / len(powers),
-        time=sum(d["time"] for d in per_benchmark.values()) / len(per_benchmark),
-        asi=1.0, speedup=1.0, modified_params=set(), output_path=baseline_dir,
-        per_benchmark=per_benchmark,
-    )
-
-
-def update_pareto_front(front: list[DesignPoint], points: list[DesignPoint]) -> list[DesignPoint]:
-    """Non-dominated points from front + points, deduplicated by params."""
-    all_points = front + points
-    non_dominated = [
-        p for p in all_points
-        if not any(dominates(other, p) for other in all_points if other is not p)
-    ]
-    deduped: dict[frozenset, DesignPoint] = {}
-    for p in non_dominated:
-        deduped.setdefault(params_key(p.params), p)
-    return list(deduped.values())
-
-
-def hypervolume(front: list[DesignPoint]) -> float:
-    """2D hypervolume of a maximizing Pareto front relative to the origin
-    (ASI=0, speedup=0). See README's "Pareto dominance & hypervolume" bullet."""
-    if not front:
-        return 0.0
-    pts = sorted(front, key=lambda p: p.speedup)
-    hv = 0.0
-    prev_speedup = 0.0
-    for p in pts:
-        hv += max(0.0, p.asi) * max(0.0, p.speedup - prev_speedup)
-        prev_speedup = p.speedup
-    return hv
-
-
-def print_pareto_table(pareto_set: list[DesignPoint]) -> None:
-    col = 34
-    header = f"  {'Params':<{col}} {'ASI':>8} {'Speedup':>8} {'Area':>8} {'PeakPow':>8}  Region"
-    sep = "  " + "─" * (len(header) - 2)
-    print(header)
-    print(sep)
-    for p in sorted(pareto_set, key=lambda x: x.speedup, reverse=True):
-        label = sustainability_label(p.asi, p.speedup)
-        print(
-            f"  {fmt_params(p.params):<{col}} {p.asi:8.4f} {p.speedup:8.4f}"
-            f" {p.area:8.2f} {p.peak_power:8.2f}  {label}"
-        )
+from .state import SearchStateBase, point_to_dict, point_from_dict, state_path, cleanup_dirs
 
 
 @dataclass
-class GreedySearchState:
+class GreedySearchState(SearchStateBase):
     """Resumable snapshot of an in-progress greedy/sensitivity search, checkpointed to JSON."""
     STRATEGY: ClassVar[str] = "greedy"
 
-    reference_config: str
-    benchmarks: dict[str, list[str]]
-    alpha: float
     iteration: int
     baseline: DesignPoint
     pareto_set: list[DesignPoint]
@@ -268,18 +30,13 @@ class GreedySearchState:
     sensitivity_history: dict[str, tuple[list[float], list[float]]]
     sniper_runs: int
     sniper_invocations: int
-    param_space: dict[str, list]
     hv_history: list[float]
     sim_history: list[int]
     pareto_size_history: list[int]
 
-    def matches(self, reference_config: str, benchmarks: dict[str, list[str]], alpha: float) -> bool:
-        return (
-            self.reference_config == str(reference_config)
-            and self.benchmarks == benchmarks
-            and self.alpha == alpha
-            and self.param_space == PARAM_SPACE
-        )
+    @staticmethod
+    def _current_param_space() -> dict[str, list]:
+        return PARAM_SPACE
 
     def to_dict(self) -> dict:
         return {
@@ -332,21 +89,6 @@ class GreedySearchState:
             pareto_size_history=d.get("pareto_size_history", []),
         )
 
-    def save(self, outputdir: Path) -> None:
-        write_json_atomic(state_path(outputdir), self.to_dict())
-
-    @classmethod
-    def load(cls, outputdir: Path) -> "GreedySearchState | None":
-        raw = read_raw_state(outputdir)
-        if raw is None:
-            return None
-        found = raw.get("strategy", "greedy")
-        if found != cls.STRATEGY:
-            print(f"Saved search state at {state_path(outputdir)} was written by strategy "
-                  f"'{found}', not '{cls.STRATEGY}' — starting fresh.\n")
-            return None
-        return cls.from_dict(raw)
-
 
 def explore_pareto_front_with_sensitivity(
     reference_config: str,
@@ -358,7 +100,7 @@ def explore_pareto_front_with_sensitivity(
     initial_cache: dict[frozenset, DesignPoint] | None = None,
 ) -> list[DesignPoint]:
     """Iterative Pareto-front exploration with sensitivity-based parameter
-    freezing; see README's "Strategy: greedy" section. initial_cache seeds
+    freezing. Initial_cache seeds
     global_cache on a fresh start, ignored when resuming."""
     SENSITIVITY_MIN_SAMPLES = 3
     SENSITIVITY_THRESHOLD = 0.05

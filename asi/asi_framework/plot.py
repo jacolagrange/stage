@@ -136,8 +136,7 @@ def plot_hv_vs_simulations(
 ) -> None:
     """Two stacked step-plots vs. cumulative configurations evaluated:
     hypervolume on top, Pareto front size on the bottom. switch_sims (used by
-    hybrid) draws a vertical line + annotation at each strategy handoff. See
-    README's "Hypervolume-vs-simulations plot" section."""
+    hybrid) draws a vertical line + annotation at each strategy handoff."""
     fig, (ax_hv, ax_size) = plt.subplots(2, 1, figsize=(8, 8), sharex=True)
 
     ax_hv.step(sim_history, hv_history, where="post", color="#6f42c1", linewidth=1.75, zorder=3)

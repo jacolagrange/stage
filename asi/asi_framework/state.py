@@ -1,10 +1,13 @@
 """Shared checkpoint/serialization primitives used by every search
-strategy's resumable-state dataclass -- see README's "Resumability" section."""
+strategy's resumable-state dataclass"""
 import dataclasses
 import json
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
+from typing import ClassVar
 
+from .config import PARAM_SPACE
 from .models import DesignPoint
 
 
@@ -57,3 +60,58 @@ def cleanup_dirs(dirs: set[Path]) -> int:
             shutil.rmtree(d, ignore_errors=True)
             count += 1
     return count
+
+
+@dataclass
+class SearchStateBase:
+    """Common resumable-state contract shared by every search strategy's
+    checkpoint dataclass (GreedySearchState, MesmoSearchState,
+    Spea2SearchState): identity check against the run's config/benchmarks/
+    alpha/param-space, and save/load through state_path()'s JSON file.
+    Subclasses set STRATEGY and implement to_dict()/from_dict() for their
+    own (differing) set of fields."""
+    STRATEGY: ClassVar[str] = ""
+
+    reference_config: str
+    benchmarks: dict[str, list[str]]
+    alpha: float
+    param_space: dict[str, list]
+
+    def matches(self, reference_config: str, benchmarks: dict[str, list[str]], alpha: float) -> bool:
+        return (
+            self.reference_config == str(reference_config)
+            and self.benchmarks == benchmarks
+            and self.alpha == alpha
+            and self.param_space == self._current_param_space()
+        )
+
+    @staticmethod
+    def _current_param_space() -> dict[str, list]:
+        """Live PARAM_SPACE to compare a loaded checkpoint's param_space
+        against. Overridden per strategy module (each returns that module's
+        own PARAM_SPACE binding) so cli.py's pre-evaluation-screening
+        PARAM_SPACE monkeypatch (greedy.PARAM_SPACE = pruned_param_space,
+        etc.) is respected instead of always reading config.py's original."""
+        return PARAM_SPACE
+
+    def to_dict(self) -> dict:
+        raise NotImplementedError
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "SearchStateBase":
+        raise NotImplementedError
+
+    def save(self, outputdir: Path) -> None:
+        write_json_atomic(state_path(outputdir), self.to_dict())
+
+    @classmethod
+    def load(cls, outputdir: Path) -> "SearchStateBase | None":
+        raw = read_raw_state(outputdir)
+        if raw is None:
+            return None
+        found = raw.get("strategy", "greedy")
+        if found != cls.STRATEGY:
+            print(f"Saved search state at {state_path(outputdir)} was written by strategy "
+                  f"'{found}', not '{cls.STRATEGY}' — starting fresh.\n")
+            return None
+        return cls.from_dict(raw)

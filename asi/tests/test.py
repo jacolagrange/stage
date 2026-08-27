@@ -3,7 +3,7 @@
 Test harness for asi_framework's search/sensitivity/probation logic, without
 running real Sniper simulations.
 
-We monkeypatch asi_framework.greedy.run() with a synthetic function that:
+We monkeypatch asi_framework.evaluation.run() with a synthetic function that:
   - parses the generated .cfg file to recover the parameter values
   - computes a fake area/power/time from a known formula
   - injects small random noise to mimic simulation measurement noise
@@ -11,9 +11,10 @@ We monkeypatch asi_framework.greedy.run() with a synthetic function that:
 This lets us pick which parameters "matter" and which don't, then check
 that the freezing/probation logic correctly identifies them.
 
-NOTE: we patch asi_framework.greedy.run (the name bound inside greedy.py via
-`from .runner import run`), not asi_framework.runner.run, because greedy.py
-calls the local name `run` directly.
+NOTE: we patch asi_framework.evaluation.run (the name bound inside
+evaluation.py via `from .runner import run`), not asi_framework.runner.run,
+because evaluation.py's evaluate_point()/compute_baseline() call the local
+name `run` directly.
 """
 
 from __future__ import annotations
@@ -27,9 +28,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from asi_framework import greedy
+from asi_framework import evaluation
+from asi_framework import display
 from asi_framework import config as cfg
 from asi_framework import plot as plt
-from asi_framework.greedy import print_pareto_table
+from asi_framework.display import print_pareto_table
 
 # ---------------------------------------------------------------------------
 # Ground truth landscape generator: instead of hand-picking which parameters
@@ -188,15 +191,20 @@ def main() -> None:
     print()
 
     # Monkeypatch: replace the real run() with our synthetic one. We patch it
-    # on the greedy module specifically, since that's where `run(...)` is
-    # called from (greedy.py imports it via `from .runner import run`).
-    greedy.run = fake_run
+    # on the evaluation module specifically, since that's where `run(...)` is
+    # called from (evaluation.py imports it via `from .runner import run`).
+    evaluation.run = fake_run
 
     # Also override PARAM_SPACE (and matching DEFAULTS) so the test exercises
     # every parameter, not just whichever ones happen to be active in
-    # asi_framework/config.py's param_space.json.
+    # asi_framework/config.py's param_space.json. DEFAULTS is used directly by
+    # greedy.py (search-set generation), evaluation.py (compute_baseline) and
+    # display.py (fmt_params), so all three module-level bindings need
+    # overriding.
     greedy.PARAM_SPACE = TEST_PARAM_SPACE
     greedy.DEFAULTS = DEFAULTS
+    evaluation.DEFAULTS = DEFAULTS
+    display.DEFAULTS = DEFAULTS
 
     outputdir = Path("/tmp/asi_test_output")
     outputdir.mkdir(parents=True, exist_ok=True)

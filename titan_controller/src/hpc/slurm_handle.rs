@@ -86,27 +86,33 @@ impl SlurmHandler{
 
     pub fn get_jobs_retry(&self, all: bool, completed: Option<usize>) -> Result<Vec<SlurmJobStat>, std::io::Error> {
         let max_tries = 5;
-        let mut res;
+        let mut last_err = None;
 
-        for _ in 0..max_tries {
-            res = self.get_jobs(all, completed)?;
-            if let Some(jobs) = res {
-                return Ok(jobs);
+        for attempt in 0..max_tries {
+            if attempt > 0 {
+                // squeue/slurmctld hiccups (e.g. "slurm_load_jobs error: Unexpected
+                // message received") are transient -- give the controller a moment
+                // before hammering it again.
+                std::thread::sleep(std::time::Duration::from_secs(5));
+            }
+            match self.get_jobs(all, completed) {
+                Ok(Some(jobs)) => return Ok(jobs),
+                Ok(None) => continue,
+                Err(e) => last_err = Some(e),
             }
         }
-        Err(std::io::Error::new(std::io::ErrorKind::Other, "Could get the jobs after multiple tries, something is wrong with job connection. Aborting here"))
+        Err(last_err.unwrap_or_else(|| std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Could not get the jobs after multiple tries, something is wrong with job connection. Aborting here",
+        )))
     }
 
     pub fn print_jobs(&self, all: bool, completed: Option<usize>) -> Result<(), std::io::Error> {
-        if let Some(jobs) = self.get_jobs(all, completed)? {
-            println!("{:<10} {:<100} {:<15} {:<5} {:<20} {:<15}", "JOBID", "NAME", "ACCOUNT", "CORES", "TIME", "STATE");
-            println!("{:-<10} {:-<100} {:-<15} {:-<5} {:-<20} {:-<15}", "", "", "", "", "", "");
-            for job in jobs{
-                println!("{:<10} {:<100} {:<15} {:<5} {:<20} {:<15}", job.job_id, job.name, job.account, job.cores, job.time, job.state);
-            }
-        }
-        else {
-            println!("Something went wrong when retreiving the jobs. Please fix or try again later.");
+        let jobs = self.get_jobs_retry(all, completed)?;
+        println!("{:<10} {:<100} {:<15} {:<5} {:<20} {:<15}", "JOBID", "NAME", "ACCOUNT", "CORES", "TIME", "STATE");
+        println!("{:-<10} {:-<100} {:-<15} {:-<5} {:-<20} {:-<15}", "", "", "", "", "", "");
+        for job in jobs {
+            println!("{:<10} {:<100} {:<15} {:<5} {:<20} {:<15}", job.job_id, job.name, job.account, job.cores, job.time, job.state);
         }
         Ok(())
     }
