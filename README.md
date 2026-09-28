@@ -94,7 +94,6 @@ parent directory (matching `benchmarks/<NAME>/bench`, as in
 [`asi/benchmarks/`](asi/benchmarks/)).
 
 ```
-cd asi
  python3 asi.py --config gainestown.cfg --strategy hybrid   --candidate-pool-size 40 --batch-size 4 --mesmo-phase-iterations 6   --populations 3 --population-size 12 --archive-size 12 --patience 10   --outputdir asi-output/hybrid_run_xl   --titan --titan-benchmark-json /home/jaco/school/stage/titan_controller/test-run/c_bench.json   --log --save-plot   -- ./benchmarks/ML2/bench   -- ./benchmarks/ML2_orig/bench   -- ./benchmarks/CCl/bench   -- ./benchmarks/MIP/bench   -- ./benchmarks/EI/bench
 ```
 
