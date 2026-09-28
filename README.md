@@ -32,7 +32,6 @@ seeded from mesmo's result).
 
 - [Getting started](#getting-started)
 - [Usage](#usage)
-- [Testing without Sniper](#testing-without-sniper)
 - [Running on Titan (HPC)](#running-on-titan-hpc)
 
 ---
