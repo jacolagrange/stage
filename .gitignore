@@ -18,6 +18,10 @@ env/
 **/asi-output/
 **/iter*_cand*/
 
+# Compiled benchmark binaries and build markers (rebuilt on demand via `make`)
+asi/benchmarks/*/bench
+asi/benchmarks/*/.built
+
 # Raw snipersim run artifacts (sim.cfg, sim.out, sim.info, sim.stats.sqlite3,
 # power.py/txt/xml/png, search_state.json) wherever they land as scratch output
 sim.cfg

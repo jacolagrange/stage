@@ -1,0 +1,56 @@
+{
+	"job":{
+		"name":"test",
+		"core_per_experiment":1,
+		"mem_per_core":2048,
+		"vm_name":"sniper2404",
+		"runs":1
+	},
+	"benchmarks": [
+		"./benchmark_template.json"
+	],
+	"git":{
+		"sniper_branch":"jaime-SVR"
+	},
+	"vm_mount":{
+		"input_mount":"None"
+	},
+	"sniper_parameters":{
+		"arguments": [
+			"-c", "cortex-a510-FSC",
+			"-n", "1",
+			"--use-va",
+			"-g", "--perf_model/core/rob_timer/in_order={in_order}",
+			"-g", "--perf_model/core/rob_timer/run_ahead/timer_type={timer}",
+			"-g", "--perf_model/core/rob_timer/run_ahead/micro_vector_size={micro_vector_size}",
+			"-g", "--perf_model/core/rob_timer/run_ahead/max_prefetch_dist={max_prefetch_dist}",
+			"-g", "--perf_model/core/rob_timer/run_ahead/scalar_per_vec_reg={max_prefetch_dist}",
+			"-g", "--perf_model/core/rob_timer/run_ahead/unrolling=false",
+			"-s", "stop-by-icount:2000000"
+		],
+		"parameters": [{
+			"mix": "product",
+			"description_mix":"product will generate all possible combinations of parameters below.",
+			"include_first": "true",
+			"description_include_first":"Wether the first value of all the paremeters should be included or not",
+			"values": {
+				"in_order":["true"],
+				"timer":["piggy-bagging"],
+				"micro_vector_size":[1, 2],
+				"max_prefetch_dist":[8, 16, 32, 64, 128]
+			}
+		},{
+			"mix": "single",
+			"description_mix":"single will vary only one parameter at the time and will use the first parameter as the default.",
+			"include_first": "true",
+			"description_include_first":"Wether the first value of all the paremeters should be included or not",
+			"values": {
+				"in_order":["true"],
+				"timer":["piggy-bagging"],
+				"micro_vector_size":[1, 2],
+				"max_prefetch_dist":[8, 16, 32, 64, 128]
+			}
+		}]
+	},
+	"host_destination_path":"/tmp/my_experiment"
+}

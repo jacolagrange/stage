@@ -1,0 +1,20 @@
+{"suites":[
+	{
+		"suite":"gaps_traces",
+		"type":"traces",
+		"vm_mount":{
+			"traces_mount":"/home/slurmslave/traces/sift"
+		},
+		"suite_path":"gaps_sift_traces_with_gp_reg_values_1B",
+		"sniper_args":[
+			"--trace-with-reg",
+			"-g", "--traceinput/trace_with_offset_bug=true"
+		],
+		"benchmarks":[
+			{
+				"name":"bc_KR",
+				"traces":["bc_KR.sift"]
+			}
+		]
+	}
+]}

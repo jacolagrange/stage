@@ -1,0 +1,61 @@
+{"suites":[
+	{
+		"suite":"gaps_traces",
+		"type":"traces",
+		"version": "1.0",
+		"vm_mount":{
+			"traces_mount":"/home/slurmslave/traces/sift"
+		},
+		"suite_path":"gaps_sift_traces_with_gp_reg_values_1B",
+		"sniper_args":[
+			"--trace-with-reg",
+			"-g", "--traceinput/trace_with_offset_bug=true"
+		],
+		"benchmarks":[
+			{
+				"name":"bc_KR",
+				"traces":["bc_KR.sift"]
+			},{
+				"name":"bc_LJN",
+				"traces":["bc_LJN.sift"]
+			}
+		]
+	},
+	{
+		"suite":"irregular_binaries",
+		"type":"binaries",
+		"git":{
+			"benchmarks_branch":"bench-jaime"
+		},
+		"suite_path":"irregular",
+		"sniper_args":[
+			"--trace-with-reg",
+			"--roi"
+		],
+		"build_cmd":["make"],
+		"benchmarks":[
+			{
+				"name":"camel",
+				"bench_path":"camel",
+				"binary":"camel_2",
+				"arguments":[],
+				"build_cmd":["make camel_2"],
+				"setup_cmd":[]
+			},{
+				"name":"is",
+				"bench_path":"nas-is",
+				"binary":"is",
+				"arguments":[],
+				"build_cmd":["make"],
+				"setup_cmd":[]
+			},{
+				"name":"hj2",
+				"bench_path":"hashjoin-ph-2",
+				"binary":"hj2",
+				"arguments":["-a", "NPO_st", "-r", "12800000", "-s", "12800000"],
+				"build_cmd":["make"],
+				"setup_cmd":[]
+			}
+		]
+	}
+]}

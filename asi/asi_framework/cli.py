@@ -2,10 +2,13 @@ import argparse
 import contextlib
 import inspect
 import sys
+import time
 from pathlib import Path
 
 from .config import RUN_SNIPER, DEFAULT_OUTPUT_DIR, DEFAULT_ALPHA, DEFAULTS
 from . import greedy, spea2, mesmo, screening
+from .metrics import params_key
+from .display import print_pareto_table
 from .strategies import STRATEGIES
 from .plot import plot_pareto_front_on_asi
 
@@ -49,7 +52,10 @@ def build_parser() -> argparse.ArgumentParser:
                "to search across multiple benchmarks at once.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--config", required=True, help="Reference Sniper config file.")
+    parser.add_argument("--config", required=True,
+                         help="Reference Sniper config file -- bare filename (e.g. 'gainestown.cfg'), "
+                              "never a path relative to this machine; run-sniper resolves it itself "
+                              "via its own curdir/$SNIPER_ROOT/config search.")
     parser.add_argument("--sniper", default=str(RUN_SNIPER), help="Path to run-sniper.")
     parser.add_argument("--outputdir", "-d", default=str(DEFAULT_OUTPUT_DIR), help="Output directory.")
     parser.add_argument("--alpha", type=float, default=DEFAULT_ALPHA,
@@ -89,6 +95,32 @@ def build_parser() -> argparse.ArgumentParser:
                                    "(spea2 only -- see --mesmo-patience for mesmo).")
     spea2_group.add_argument("--seed", type=int, default=0,
                               help="RNG seed for reproducible runs (spea2, mesmo).")
+
+    titan_group = parser.add_argument_group("titan strategy options (spea2, mesmo, hybrid, pre-evaluation screening)")
+    titan_group.add_argument("--titan", action="store_true",
+                              help="Evaluate each spea2 generation, or each mesmo initial-design/"
+                                   "iteration batch, as one batch job on Titan (titan_controller) "
+                                   "instead of one local Sniper run at a time. For mesmo, only the "
+                                   "initial design and iterations with --batch-size > 1 have more "
+                                   "than one candidate to batch. hybrid forwards this to both its "
+                                   "mesmo and spea2 phases. Requires --titan-benchmark-json.")
+    titan_group.add_argument("--titan-benchmark-json", dest="titan_benchmark_json",
+                              help="titan_controller benchmark JSON covering the same benchmark "
+                                   "names given after '--' (required with --titan).")
+    titan_group.add_argument("--titan-dir", dest="titan_dir",
+                              help="Path to the titan_controller checkout. Defaults to "
+                                   "'titan_controller' next to this repo.")
+    titan_group.add_argument("--titan-host-dir", dest="titan_host_dir",
+                              help="Where Titan results land locally. Defaults to outputdir/titan.")
+    titan_group.add_argument("--titan-sniper-mount", dest="titan_sniper_mount",
+                              default="/mnt/perflab/exascience/src/jaco_sniper",
+                              help="Sniper checkout mounted on Titan compute nodes.")
+    titan_group.add_argument("--titan-benchmarks-mount", dest="titan_benchmarks_mount",
+                              default="/mnt/perflab/exascience/src/jaco_benchmarks",
+                              help="Benchmarks checkout mounted on Titan compute nodes.")
+    titan_group.add_argument("--titan-poll-interval", dest="titan_poll_interval",
+                              type=float, default=30.0,
+                              help="Seconds between --list job polls while waiting on a batch.")
 
     mesmo_group = parser.add_argument_group("mesmo strategy options")
     mesmo_group.add_argument("--num-initial-points", type=int, default=5,
@@ -178,7 +210,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _benchmark_name(cmd: list[str], used: set[str]) -> str:
     """Derive a display/output-dir name for a benchmark command from its
-    executable's parent directory (matching the libs/benchmarks/<NAME>/bench
+    executable's parent directory (matching the benchmarks/<NAME>/bench
     layout), de-duplicating if the same name would be used twice."""
     exe = Path(cmd[0])
     stem = exe.resolve().parent.name or exe.stem or "bench"
@@ -191,10 +223,20 @@ def _benchmark_name(cmd: list[str], used: set[str]) -> str:
     return name
 
 
+def _format_elapsed(seconds: float) -> str:
+    total = int(seconds)
+    hours, remainder = divmod(total, 3600)
+    minutes, secs = divmod(remainder, 60)
+    return f"{hours:d}:{minutes:02d}:{secs:02d}"
+
+
 def main() -> int:
+    start_time = time.monotonic()
     parser = build_parser()
 
     argv = sys.argv[1:]
+    if "-h" in argv or "--help" in argv:
+        parser.parse_args(argv)
     if "--" not in argv:
         parser.error("benchmark command(s) must be separated with '--', "
                       "e.g. asi.py --config c.cfg --log --save-plot -- ./bench "
@@ -240,15 +282,9 @@ def main() -> int:
         "benchmarks": args.benchmarks,
         "alpha": args.alpha,
     }
-    # Only forward max_iterations if the user actually passed --iterations;
-    # otherwise let the chosen strategy's own function default apply (5 for
-    # greedy, 30 for spea2/mesmo) instead of one fixed number for everyone.
     if args.iterations is not None:
         base_kwargs["max_iterations"] = args.iterations
 
-    # Forward any strategy-specific CLI flags (e.g. --populations, --seed) whose
-    # dest name matches a parameter the chosen strategy's run function accepts.
-    # This is what lets a future strategy plug in without touching this dispatch.
     accepted = inspect.signature(strategy.run).parameters
     extra_kwargs = {k: v for k, v in vars(args).items() if k in accepted and k not in base_kwargs}
 
@@ -279,35 +315,21 @@ def main() -> int:
                     keep_threshold=args.preeval_threshold,
                     seed=args.preeval_seed,
                     method=args.preeval_method,
+                    titan=args.titan,
+                    titan_benchmark_json=args.titan_benchmark_json,
+                    titan_dir=args.titan_dir,
+                    titan_host_dir=args.titan_host_dir,
+                    titan_sniper_mount=args.titan_sniper_mount,
+                    titan_benchmarks_mount=args.titan_benchmarks_mount,
+                    titan_poll_interval=args.titan_poll_interval,
                 )
-            # All three strategies read PARAM_SPACE as a name bound into their
-            # own module at import time (`from .config import PARAM_SPACE`),
-            # so patching config.PARAM_SPACE itself wouldn't reach them --
-            # same convention tests/test.py already relies on.
             greedy.PARAM_SPACE = pruned_param_space
             spea2.PARAM_SPACE = pruned_param_space
             mesmo.PARAM_SPACE = pruned_param_space
-            # Seeds the strategy's own global_cache (baseline + any screening
-            # sample it happens to re-encounter) on a fresh start; a resumed
-            # run ignores it in favor of its own saved cache.
             base_kwargs["initial_cache"] = preeval_cache
 
-            # If the chosen strategy can be seeded with a starting generation
-            # (currently only spea2 -- see its seed_entities docstring), hand
-            # it every point screening already evaluated instead of letting
-            # generation 0 draw a fresh random population and leave those
-            # already-paid-for evaluations sitting unused in initial_cache.
-            # This mirrors hybrid.py seeding spea2's generation 0 from mesmo's
-            # final Pareto front. preeval_runs/preeval_invocations attribute
-            # screening's own Sniper cost (which screening itself never
-            # reports/plots a running total for) into the strategy's own
-            # sim_history/"Configurations evaluated" total -- the same
-            # accounting mesmo.py already does for its own initial design
-            # when seeded from a screening cache -- so hv_vs_sims.png's
-            # x-axis reflects the true number of configurations spent, not
-            # just the ones re-run inside this strategy call.
             if "seed_entities" in accepted:
-                baseline_key = greedy.params_key(DEFAULTS)
+                baseline_key = params_key(DEFAULTS)
                 preeval_points = [p for k, p in preeval_cache.items() if k != baseline_key]
                 base_kwargs["seed_entities"] = [dict(p.params) for p in preeval_points]
                 if preeval_points and "preeval_runs" in accepted:
@@ -317,7 +339,8 @@ def main() -> int:
         front = strategy.run(**base_kwargs, **extra_kwargs)
 
         print("=== Final Pareto Front ===")
-        greedy.print_pareto_table(front)
+        print_pareto_table(front)
+        print(f"\nTotal elapsed time: {_format_elapsed(time.monotonic() - start_time)}")
 
     plot_pareto_front_on_asi(front, title="ASI Pareto Front", save_path=save_plot, show=False)
     return 0

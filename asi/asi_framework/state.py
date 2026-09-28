@@ -1,21 +1,13 @@
-"""
-Shared checkpoint/serialization primitives, used by every search strategy's
-own resumable-state dataclass (see greedy.py's GreedySearchState and
-spea2.py's Spea2SearchState).
-
-Each strategy owns its own state shape (the greedy search's Pareto front +
-freeze bookkeeping look nothing like SPEA2's populations/archives), but the
-mechanics of "turn a DesignPoint into JSON and back", "write the state file
-without corrupting it if we get killed mid-write", and "figure out which
-strategy a saved state file belongs to" are identical across strategies.
-Centralizing them here means a future strategy only has to write its own
-to_dict/from_dict for its strategy-specific fields.
-"""
+"""Shared checkpoint/serialization primitives used by every search
+strategy's resumable-state dataclass"""
 import dataclasses
 import json
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
+from typing import ClassVar
 
+from .config import PARAM_SPACE
 from .models import DesignPoint
 
 
@@ -44,7 +36,6 @@ def write_json_atomic(path: Path, data: dict) -> None:
 
 
 def read_raw_state(outputdir: Path) -> dict | None:
-    """Read the raw saved-state JSON for this outputdir, or None if none exists."""
     path = state_path(outputdir)
     if not path.exists():
         return None
@@ -53,8 +44,6 @@ def read_raw_state(outputdir: Path) -> dict | None:
 
 
 def rng_state_to_json(rng) -> list:
-    """random.Random.getstate() -> JSON-safe nested list, so a resumed run
-    continues the exact same pseudo-random sequence rather than reseeding."""
     version, internal_state, gauss_next = rng.getstate()
     return [version, list(internal_state), gauss_next]
 
@@ -65,14 +54,64 @@ def rng_state_from_json(data: list) -> tuple:
 
 
 def cleanup_dirs(dirs: set[Path]) -> int:
-    """Delete a set of Sniper output directories that are no longer referenced
-    by any live design point. Shared by every strategy so that a search that
-    evaluates far more candidates than it ultimately needs (e.g. an
-    evolutionary search's discarded population members) doesn't leave
-    hundreds of stale multi-megabyte output directories behind."""
     count = 0
     for d in dirs:
         if d and d.exists():
             shutil.rmtree(d, ignore_errors=True)
             count += 1
     return count
+
+
+@dataclass
+class SearchStateBase:
+    """Common resumable-state contract shared by every search strategy's
+    checkpoint dataclass (GreedySearchState, MesmoSearchState,
+    Spea2SearchState): identity check against the run's config/benchmarks/
+    alpha/param-space, and save/load through state_path()'s JSON file.
+    Subclasses set STRATEGY and implement to_dict()/from_dict() for their
+    own (differing) set of fields."""
+    STRATEGY: ClassVar[str] = ""
+
+    reference_config: str
+    benchmarks: dict[str, list[str]]
+    alpha: float
+    param_space: dict[str, list]
+
+    def matches(self, reference_config: str, benchmarks: dict[str, list[str]], alpha: float) -> bool:
+        return (
+            self.reference_config == str(reference_config)
+            and self.benchmarks == benchmarks
+            and self.alpha == alpha
+            and self.param_space == self._current_param_space()
+        )
+
+    @staticmethod
+    def _current_param_space() -> dict[str, list]:
+        """Live PARAM_SPACE to compare a loaded checkpoint's param_space
+        against. Overridden per strategy module (each returns that module's
+        own PARAM_SPACE binding) so cli.py's pre-evaluation-screening
+        PARAM_SPACE monkeypatch (greedy.PARAM_SPACE = pruned_param_space,
+        etc.) is respected instead of always reading config.py's original."""
+        return PARAM_SPACE
+
+    def to_dict(self) -> dict:
+        raise NotImplementedError
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "SearchStateBase":
+        raise NotImplementedError
+
+    def save(self, outputdir: Path) -> None:
+        write_json_atomic(state_path(outputdir), self.to_dict())
+
+    @classmethod
+    def load(cls, outputdir: Path) -> "SearchStateBase | None":
+        raw = read_raw_state(outputdir)
+        if raw is None:
+            return None
+        found = raw.get("strategy", "greedy")
+        if found != cls.STRATEGY:
+            print(f"Saved search state at {state_path(outputdir)} was written by strategy "
+                  f"'{found}', not '{cls.STRATEGY}' — starting fresh.\n")
+            return None
+        return cls.from_dict(raw)

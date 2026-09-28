@@ -1,0 +1,33 @@
+{
+	"job":{
+		"name":"test_c",
+		"core_per_experiment":1,
+		"mem_per_core":2048,
+		"vm_name":"sniper2404",
+		"runs":1
+	},
+	"benchmarks": [
+		"./c_bench.json"
+	],
+	"vm_mount":{
+		"input_mount":"None",
+		"sniper_mount":"/mnt/perflab/exascience/src/jaco_sniper",
+		"benchmarks_mount":"/mnt/perflab/exascience/src/jaco_benchmarks"
+	},
+	"sniper_parameters":{
+		"arguments": [
+			"-n", "1",
+			"-s", "stop-by-icount:2000000"
+		],
+		"parameters": [{
+			"mix": "single",
+			"description_mix":"single will vary only one parameter at the time and will use the first parameter as the default.",
+			"include_first": "true",
+			"description_include_first":"Wether the first value of all the paremeters should be included or not",
+			"values": {
+				"in_order":["true"]
+			}
+		}]
+	},
+	"host_destination_path":"/tmp/asi_microbench_run"
+}
