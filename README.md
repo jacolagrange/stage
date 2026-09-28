@@ -195,21 +195,6 @@ Under `--outputdir`:
 resumable ordinary run of that strategy (so one phase's checkpoint can't
 overwrite the other's).
 
-## Testing without Sniper
-
-**File:** `tests/test.py`. Exercises `greedy.py`'s sensitivity/freezing
-logic against a synthetic, seeded stand-in for Sniper — no simulator needed,
-runs in seconds.
-
-```bash
-python3 asi/tests/test.py
-```
-
-The synthetic model's ground truth (which parameters "really" matter) is
-known up front, so the printed final Pareto front can be checked by eye:
-real-effect parameters stay active, null ones freeze within the first
-couple of iterations.
-
 ## Running on Titan (HPC)
 
 ### Why
