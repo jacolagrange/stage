@@ -28,4 +28,8 @@ STRATEGIES: dict[str, StrategySpec] = {
         name="hybrid",
         run=hybrid.explore_pareto_front_hybrid,
     ),
+    "full_factorial": StrategySpec(
+        name="full_factorial",
+        run=greedy.explore_full_factorial,
+    ),
 }

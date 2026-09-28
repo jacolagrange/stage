@@ -109,8 +109,11 @@ def _pb_entities(
     design = _pb_design_with_foldover(x)
 
     entities = [
-        {param: (levels[param][0] if row[col] == -1 else levels[param][1])
-         for col, param in enumerate(columns)}
+        {
+            **DEFAULTS,
+            **{param: (levels[param][0] if row[col] == -1 else levels[param][1])
+               for col, param in enumerate(columns)},
+        }
         for row in design
     ]
     return entities, levels, design, len(columns)
@@ -241,9 +244,25 @@ def screen_param_space(
         entities = [random_entity(rng, PARAM_SPACE) for _ in range(num_samples)]
         print(f"=== Pre-evaluation screening ({num_samples} samples) ===")
 
+    titan_config = titan_batch.build_config(
+        titan, outputdir, titan_benchmark_json, titan_dir, titan_host_dir,
+        titan_sniper_mount, titan_benchmarks_mount, titan_poll_interval,
+    )
+
     print("Running baseline...")
     baseline_dir = outputdir / "preeval" / "baseline"
-    baseline = compute_baseline(reference_config, sniper, baseline_dir, benchmarks)
+    if titan_config is not None:
+        baseline = titan_batch.evaluate_baseline(
+            reference_config, benchmarks, baseline_dir,
+            titan_controller_dir=titan_config["titan_controller_dir"],
+            benchmark_json_path=titan_config["benchmark_json_path"],
+            host_destination_path=titan_config["host_destination_path"] / "preeval",
+            sniper_mount=titan_config["sniper_mount"],
+            benchmarks_mount=titan_config["benchmarks_mount"],
+            poll_interval=titan_config["poll_interval"],
+        )
+    else:
+        baseline = compute_baseline(reference_config, sniper, baseline_dir, benchmarks)
 
     global_cache = {params_key(DEFAULTS): baseline}
     sample_dirs: set[Path] = set()
@@ -262,10 +281,6 @@ def screen_param_space(
         sample_dirs.add(out)
         entries.append((params, out, modified))
 
-    titan_config = titan_batch.build_config(
-        titan, outputdir, titan_benchmark_json, titan_dir, titan_host_dir,
-        titan_sniper_mount, titan_benchmarks_mount, titan_poll_interval,
-    )
     if titan_config is None:
         points = [
             evaluate_point(params, modified, out, reference_config, sniper, benchmarks, baseline, alpha, global_cache)[0]
@@ -291,7 +306,8 @@ def screen_param_space(
             pb_successes += 1
             asi_dev = point.asi - 1.0
             speedup_dev = point.speedup - 1.0
-            for param, value in params.items():
+            for param in pb_levels:
+                value = params[param]
                 low, _high = pb_levels[param]
                 sign = -1.0 if value == low else 1.0
                 pb_effects_asi[param] += sign * asi_dev

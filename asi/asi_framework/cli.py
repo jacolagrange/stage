@@ -11,6 +11,7 @@ from .metrics import params_key
 from .display import print_pareto_table
 from .strategies import STRATEGIES
 from .plot import plot_pareto_front_on_asi
+from .state import load_elapsed_seconds, save_elapsed_seconds, format_elapsed
 
 
 class _Tee:
@@ -63,15 +64,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--strategy", choices=sorted(STRATEGIES), default="greedy",
                         help="Search strategy: 'greedy' (sensitivity-freezing hill-climb, default), "
                              "'spea2' (COLE-style multi-objective evolutionary search), 'mesmo' "
-                             "(max-value entropy search multi-objective Bayesian optimization), or "
+                             " (max-value entropy search multi-objective Bayesian optimization), "
                              "'hybrid' (mesmo until its hypervolume plateaus, then spea2 seeded from "
-                             "mesmo's final Pareto front instead of a random one).")
+                             "mesmo's final Pareto front instead of a random one), or 'full_factorial' "
+                             "(exhaustively evaluates every configuration in PARAM_SPACE -- meant for "
+                             "a small/pre-evaluation-pruned space, see --preeval-samples; --titan "
+                             "keeps a rolling window of Titan job chunks in flight so the cluster is "
+                             "never left idle between chunks -- see the titan strategy options group).")
     parser.add_argument("--iterations", type=int, default=None,
                         help="Maximum number of search iterations (greedy) / generations (spea2, "
                              "and hybrid's spea2 phase) / BO iterations (mesmo). Defaults to whichever "
                              "strategy is selected picking its own default (5 for greedy, 30 for "
                              "spea2/mesmo/hybrid) rather than one fixed number for every strategy. For "
-                             "hybrid's mesmo-phase iteration budget, see --mesmo-phase-iterations.")
+                             "hybrid's mesmo-phase iteration budget, see --mesmo-phase-iterations. Not "
+                             "applicable to full_factorial, which always runs every configuration.")
     parser.add_argument("--log", nargs="?", const="auto", metavar="PATH",
                         help="Save terminal output to PATH. Omit PATH to use outputdir/run.log.")
     parser.add_argument("--save-plot", nargs="?", const="auto", metavar="PATH",
@@ -96,14 +102,18 @@ def build_parser() -> argparse.ArgumentParser:
     spea2_group.add_argument("--seed", type=int, default=0,
                               help="RNG seed for reproducible runs (spea2, mesmo).")
 
-    titan_group = parser.add_argument_group("titan strategy options (spea2, mesmo, hybrid, pre-evaluation screening)")
+    titan_group = parser.add_argument_group(
+        "titan strategy options (spea2, mesmo, hybrid, full_factorial, pre-evaluation screening)")
     titan_group.add_argument("--titan", action="store_true",
                               help="Evaluate each spea2 generation, or each mesmo initial-design/"
                                    "iteration batch, as one batch job on Titan (titan_controller) "
                                    "instead of one local Sniper run at a time. For mesmo, only the "
                                    "initial design and iterations with --batch-size > 1 have more "
                                    "than one candidate to batch. hybrid forwards this to both its "
-                                   "mesmo and spea2 phases. Requires --titan-benchmark-json.")
+                                   "mesmo and spea2 phases. For full_factorial, submits the whole "
+                                   "sweep as a rolling window of chunks instead (see "
+                                   "--titan-chunk-size/--titan-max-concurrent) rather than one batch "
+                                   "per generation/iteration. Requires --titan-benchmark-json.")
     titan_group.add_argument("--titan-benchmark-json", dest="titan_benchmark_json",
                               help="titan_controller benchmark JSON covering the same benchmark "
                                    "names given after '--' (required with --titan).")
@@ -121,6 +131,19 @@ def build_parser() -> argparse.ArgumentParser:
     titan_group.add_argument("--titan-poll-interval", dest="titan_poll_interval",
                               type=float, default=30.0,
                               help="Seconds between --list job polls while waiting on a batch.")
+    titan_group.add_argument("--titan-chunk-size", dest="titan_chunk_size",
+                              type=int, default=50,
+                              help="full_factorial only: configurations per Titan job chunk. Each "
+                                   "chunk is its own Slurm array job, so it's already spread across "
+                                   "every free compute node on its own -- this mostly just bounds how "
+                                   "much of the sweep is in flight (and how much progress could be "
+                                   "lost on a crash) before results get collected and checkpointed.")
+    titan_group.add_argument("--titan-max-concurrent", dest="titan_max_concurrent",
+                              type=int, default=3,
+                              help="full_factorial only: chunks kept submitted to Titan at once. The "
+                                   "instant one chunk finishes, its slot is immediately refilled with "
+                                   "the next chunk, so the cluster is never left waiting between "
+                                   "chunks for a single job's poll cycle.")
 
     mesmo_group = parser.add_argument_group("mesmo strategy options")
     mesmo_group.add_argument("--num-initial-points", type=int, default=5,
@@ -223,13 +246,6 @@ def _benchmark_name(cmd: list[str], used: set[str]) -> str:
     return name
 
 
-def _format_elapsed(seconds: float) -> str:
-    total = int(seconds)
-    hours, remainder = divmod(total, 3600)
-    minutes, secs = divmod(remainder, 60)
-    return f"{hours:d}:{minutes:02d}:{secs:02d}"
-
-
 def main() -> int:
     start_time = time.monotonic()
     parser = build_parser()
@@ -265,6 +281,7 @@ def main() -> int:
 
     outputdir = Path(args.outputdir).expanduser().resolve()
     outputdir.mkdir(parents=True, exist_ok=True)
+    prior_elapsed = load_elapsed_seconds(outputdir)
 
     log_path = None
     if args.log is not None:
@@ -281,6 +298,8 @@ def main() -> int:
         "outputdir": outputdir,
         "benchmarks": args.benchmarks,
         "alpha": args.alpha,
+        "start_time": start_time,
+        "prior_elapsed": prior_elapsed,
     }
     if args.iterations is not None:
         base_kwargs["max_iterations"] = args.iterations
@@ -288,59 +307,63 @@ def main() -> int:
     accepted = inspect.signature(strategy.run).parameters
     extra_kwargs = {k: v for k, v in vars(args).items() if k in accepted and k not in base_kwargs}
 
-    with (_tee_stdout(log_path) if log_path else contextlib.nullcontext()):
-        if log_path:
-            print(f"Logging to {log_path}\n")
+    try:
+        with (_tee_stdout(log_path) if log_path else contextlib.nullcontext()):
+            if log_path:
+                print(f"Logging to {log_path}\n")
 
-        print("Benchmarks: " + ", ".join(
-            f"{name} ({' '.join(cmd)})" for name, cmd in args.benchmarks.items()
-        ) + "\n")
+            print("Benchmarks: " + ", ".join(
+                f"{name} ({' '.join(cmd)})" for name, cmd in args.benchmarks.items()
+            ) + "\n")
 
-        if args.preeval_samples > 0 or args.preeval_cache:
-            if args.preeval_cache:
-                pruned_param_space, preeval_cache = screening.load_screening_cache(
-                    outputdir=outputdir,
-                    reference_config=args.config,
-                    benchmarks=args.benchmarks,
-                    alpha=args.alpha,
-                )
-            else:
-                pruned_param_space, preeval_cache = screening.screen_param_space(
-                    reference_config=args.config,
-                    sniper=sniper,
-                    outputdir=outputdir,
-                    benchmarks=args.benchmarks,
-                    alpha=args.alpha,
-                    num_samples=args.preeval_samples,
-                    keep_threshold=args.preeval_threshold,
-                    seed=args.preeval_seed,
-                    method=args.preeval_method,
-                    titan=args.titan,
-                    titan_benchmark_json=args.titan_benchmark_json,
-                    titan_dir=args.titan_dir,
-                    titan_host_dir=args.titan_host_dir,
-                    titan_sniper_mount=args.titan_sniper_mount,
-                    titan_benchmarks_mount=args.titan_benchmarks_mount,
-                    titan_poll_interval=args.titan_poll_interval,
-                )
-            greedy.PARAM_SPACE = pruned_param_space
-            spea2.PARAM_SPACE = pruned_param_space
-            mesmo.PARAM_SPACE = pruned_param_space
-            base_kwargs["initial_cache"] = preeval_cache
+            if args.preeval_samples > 0 or args.preeval_cache:
+                if args.preeval_cache:
+                    pruned_param_space, preeval_cache = screening.load_screening_cache(
+                        outputdir=outputdir,
+                        reference_config=args.config,
+                        benchmarks=args.benchmarks,
+                        alpha=args.alpha,
+                    )
+                else:
+                    pruned_param_space, preeval_cache = screening.screen_param_space(
+                        reference_config=args.config,
+                        sniper=sniper,
+                        outputdir=outputdir,
+                        benchmarks=args.benchmarks,
+                        alpha=args.alpha,
+                        num_samples=args.preeval_samples,
+                        keep_threshold=args.preeval_threshold,
+                        seed=args.preeval_seed,
+                        method=args.preeval_method,
+                        titan=args.titan,
+                        titan_benchmark_json=args.titan_benchmark_json,
+                        titan_dir=args.titan_dir,
+                        titan_host_dir=args.titan_host_dir,
+                        titan_sniper_mount=args.titan_sniper_mount,
+                        titan_benchmarks_mount=args.titan_benchmarks_mount,
+                        titan_poll_interval=args.titan_poll_interval,
+                    )
+                greedy.PARAM_SPACE = pruned_param_space
+                spea2.PARAM_SPACE = pruned_param_space
+                mesmo.PARAM_SPACE = pruned_param_space
+                base_kwargs["initial_cache"] = preeval_cache
 
-            if "seed_entities" in accepted:
-                baseline_key = params_key(DEFAULTS)
-                preeval_points = [p for k, p in preeval_cache.items() if k != baseline_key]
-                base_kwargs["seed_entities"] = [dict(p.params) for p in preeval_points]
-                if preeval_points and "preeval_runs" in accepted:
-                    base_kwargs["preeval_runs"] = len(preeval_points)
-                    base_kwargs["preeval_invocations"] = sum(len(p.per_benchmark) for p in preeval_points)
+                if "seed_entities" in accepted:
+                    baseline_key = params_key(DEFAULTS)
+                    preeval_points = [p for k, p in preeval_cache.items() if k != baseline_key]
+                    base_kwargs["seed_entities"] = [dict(p.params) for p in preeval_points]
+                    if preeval_points and "preeval_runs" in accepted:
+                        base_kwargs["preeval_runs"] = len(preeval_points)
+                        base_kwargs["preeval_invocations"] = sum(len(p.per_benchmark) for p in preeval_points)
 
-        front = strategy.run(**base_kwargs, **extra_kwargs)
+            front = strategy.run(**base_kwargs, **extra_kwargs)
 
-        print("=== Final Pareto Front ===")
-        print_pareto_table(front)
-        print(f"\nTotal elapsed time: {_format_elapsed(time.monotonic() - start_time)}")
+            print("=== Final Pareto Front ===")
+            print_pareto_table(front)
+            total_elapsed = prior_elapsed + (time.monotonic() - start_time)
+            print(f"\nTotal elapsed time: {format_elapsed(total_elapsed)} (including prior runs)")
+    finally:
+        save_elapsed_seconds(outputdir, prior_elapsed + (time.monotonic() - start_time))
 
     plot_pareto_front_on_asi(front, title="ASI Pareto Front", save_path=save_plot, show=False)
     return 0

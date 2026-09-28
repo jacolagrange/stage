@@ -15,6 +15,30 @@ def state_path(outputdir: Path) -> Path:
     return outputdir / "search_state.json"
 
 
+def elapsed_path(outputdir: Path) -> Path:
+    return outputdir / "elapsed_seconds.json"
+
+
+def load_elapsed_seconds(outputdir: Path) -> float:
+    """Total wall-clock seconds spent in prior runs against this outputdir
+    (0.0 if none recorded yet), for accumulating time across a Ctrl+C/resume."""
+    path = elapsed_path(outputdir)
+    if not path.exists():
+        return 0.0
+    return json.loads(path.read_text())["elapsed_seconds"]
+
+
+def save_elapsed_seconds(outputdir: Path, seconds: float) -> None:
+    write_json_atomic(elapsed_path(outputdir), {"elapsed_seconds": seconds})
+
+
+def format_elapsed(seconds: float) -> str:
+    total = int(seconds)
+    hours, remainder = divmod(total, 3600)
+    minutes, secs = divmod(remainder, 60)
+    return f"{hours:d}:{minutes:02d}:{secs:02d}"
+
+
 def point_to_dict(p: DesignPoint) -> dict:
     d = dataclasses.asdict(p)
     d["modified_params"] = sorted(d["modified_params"])

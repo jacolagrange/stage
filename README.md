@@ -68,7 +68,7 @@ the repo's git hooks once: `git config core.hooksPath .githooks`.
 **4. Python environment**
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
-pip install -r asi/requirements.txt   # numpy, scipy, matplotlib
+pip install -r asi/requirements.txt   # numpy, scipy, matplotlib, pandas
 ```
 No install step for the framework itself — run it directly (see below).
 

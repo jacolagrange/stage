@@ -46,6 +46,8 @@ def explore_pareto_front_hybrid(
     titan_sniper_mount: str = "/mnt/perflab/exascience/src/jaco_sniper",
     titan_benchmarks_mount: str = "/mnt/perflab/exascience/src/jaco_benchmarks",
     titan_poll_interval: float = 30.0,
+    start_time: float | None = None,
+    prior_elapsed: float = 0.0,
 ) -> list[DesignPoint]:
     """Hybrid MESMO -> SPEA2 exploration.
     titan (and the rest of the titan_* flags) are forwarded to both phases
@@ -105,6 +107,8 @@ def explore_pareto_front_hybrid(
             titan_sniper_mount=titan_sniper_mount,
             titan_benchmarks_mount=titan_benchmarks_mount,
             titan_poll_interval=titan_poll_interval,
+            start_time=start_time,
+            prior_elapsed=prior_elapsed,
         )
         mesmo_state = mesmo.MesmoSearchState.load(mesmo_dir)
 
@@ -135,6 +139,8 @@ def explore_pareto_front_hybrid(
         titan_sniper_mount=titan_sniper_mount,
         titan_benchmarks_mount=titan_benchmarks_mount,
         titan_poll_interval=titan_poll_interval,
+        start_time=start_time,
+        prior_elapsed=prior_elapsed,
     )
     spea2_state = spea2.Spea2SearchState.load(spea2_dir)
 

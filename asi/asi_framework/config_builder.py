@@ -132,6 +132,14 @@ def build_runtime_config(
             resolved_window_size = SNIPER_ROB_DEFAULTS["rob_window_size"]
         params["rob_rs_entries"] = resolved_window_size // 2
 
+        # COUPLING (to revert: delete these 3 lines -- rob_commit_width goes
+        # back to being independent, still driven by its own PARAM_SPACE
+        # value list/DEFAULTS entry, nothing else to restore):
+        resolved_dispatch_width = params.get("rob_dispatch_width")
+        if resolved_dispatch_width is None:
+            resolved_dispatch_width = SNIPER_ROB_DEFAULTS["rob_dispatch_width"]
+        params["rob_commit_width"] = resolved_dispatch_width
+
         for param, sniper_path in SNIPER_ROB_KNOB_MAP.items():
             value = params.get(param)
             if value is None:

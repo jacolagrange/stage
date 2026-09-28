@@ -3,6 +3,7 @@ Bayesian-optimization search strategy; adapted from Belakaria, Deshwal &
 Doppa, "Max-value Entropy Search for Multi-Objective Bayesian Optimization"
 (NeurIPS'19 / JAIR'21)."""
 import random
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar
@@ -20,7 +21,7 @@ from . import titan_batch
 from .plot import plot_pareto_front_on_asi, plot_pareto_fronts_on_asi, plot_hv_vs_simulations
 from .state import (
     SearchStateBase, point_to_dict, point_from_dict, state_path,
-    cleanup_dirs, rng_state_to_json, rng_state_from_json,
+    cleanup_dirs, rng_state_to_json, rng_state_from_json, format_elapsed,
 )
 
 
@@ -357,6 +358,8 @@ def explore_pareto_front_mesmo(
     titan_sniper_mount: str = "/mnt/perflab/exascience/src/jaco_sniper",
     titan_benchmarks_mount: str = "/mnt/perflab/exascience/src/jaco_benchmarks",
     titan_poll_interval: float = 30.0,
+    start_time: float | None = None,
+    prior_elapsed: float = 0.0,
 ) -> list[DesignPoint]:
     """MESMO Bayesian-optimization exploration of the ASI versus speedup
     design space. hv_patience defaults to None (disabled), unlike spea2's aggressive default, since a
@@ -367,6 +370,8 @@ def explore_pareto_front_mesmo(
     submitted as one titan_batch job instead of evaluated one at a time --
     batch_size=1 (the default) gains nothing from titan past the initial
     design, since there's only ever one candidate per iteration to batch."""
+    if start_time is None:
+        start_time = time.monotonic()
     titan_config = titan_batch.build_config(
         titan, outputdir, titan_benchmark_json, titan_dir, titan_host_dir,
         titan_sniper_mount, titan_benchmarks_mount, titan_poll_interval,
@@ -394,7 +399,18 @@ def explore_pareto_front_mesmo(
         else:
             print("Running baseline...")
             baseline_dir = outputdir / "baseline"
-            baseline = compute_baseline(reference_config, sniper, baseline_dir, benchmarks)
+            if titan_config is not None:
+                baseline = titan_batch.evaluate_baseline(
+                    reference_config, benchmarks, baseline_dir,
+                    titan_controller_dir=titan_config["titan_controller_dir"],
+                    benchmark_json_path=titan_config["benchmark_json_path"],
+                    host_destination_path=titan_config["host_destination_path"] / "baseline",
+                    sniper_mount=titan_config["sniper_mount"],
+                    benchmarks_mount=titan_config["benchmarks_mount"],
+                    poll_interval=titan_config["poll_interval"],
+                )
+            else:
+                baseline = compute_baseline(reference_config, sniper, baseline_dir, benchmarks)
             global_cache[baseline_key] = baseline
         print(f"  Area={baseline.area:.2f} mm²  PeakPow={baseline.peak_power:.2f} W")
         for name, d in baseline.per_benchmark.items():
@@ -440,6 +456,7 @@ def explore_pareto_front_mesmo(
         print_pareto_table(state.pareto_front)
         print(f"  Ran sniper {runs_this_iter} time{'s' if runs_this_iter != 1 else ''} this step "
               f"({state.sniper_runs} total).")
+        print(f"  Elapsed: {format_elapsed(prior_elapsed + (time.monotonic() - start_time))}")
         plot_pareto_front_on_asi(
             state.pareto_front, title="ASI Pareto Front (initial design)",
             save_path=outputdir / "pareto_init.png", show=False,
@@ -502,6 +519,7 @@ def explore_pareto_front_mesmo(
         print_pareto_table(state.pareto_front)
         print(f"  Ran sniper {runs_this_iter} time{'s' if runs_this_iter != 1 else ''} this iteration "
               f"({state.sniper_runs} total).")
+        print(f"  Elapsed: {format_elapsed(prior_elapsed + (time.monotonic() - start_time))}")
         plot_pareto_front_on_asi(
             state.pareto_front, title=f"ASI Pareto Front (iteration {iteration})",
             save_path=outputdir / f"pareto_iter{iteration}.png", show=False,
