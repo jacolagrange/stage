@@ -410,27 +410,4 @@ locally; without it, `spea2` behaves exactly as before.
 - Results are parsed with the same `runner.parse_sniper_output()` a local
   run uses — Titan and local points are interchangeable in `global_cache`.
 
-### Troubleshooting
 
-- **`Experiment is already fully done, nothing to do`** — not an error, a
-  cache hit (see above); the exact config was already computed, maybe by an
-  unrelated experiment.
-- **Password prompt on every command** — set up SSH multiplexing (see
-  [One-time setup](#one-time-setup)).
-- **Job fails near-instantly (<10s)** — check
-  `stderr_<jobid>_<task>.txt` in the result tarball for a git-branch
-  mismatch; only relevant if using the git-checkout convention instead of
-  `vm_mount`.
-- **Job runs minutes then "did not pass the tests"** — build failed on the
-  compute node; check `make_sniper.err`/`make_benchmarks.err`/`stderr_vm.txt`
-  in the tarball.
-- **`--delete job` says "Cannot remove a job using this account!"** — needs
-  a privileged account this project doesn't have. Cancel directly:
-  `ssh titan "scancel <jobid>"`.
-- **See what a compute node actually sees** (not the login node):
-  ```bash
-  ssh titan "srun --nodelist=titan01 --qos=batch_qos --partition=batch --time=00:01:00 bash -c '<command>'"
-  ```
-- **Full local reset** if something looks stuck/corrupted:
-  `rm -rf ~/.cache/titan_controller/` — purely local, affects no running
-  jobs, everything regenerates (just without prior cached results).
