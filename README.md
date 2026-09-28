@@ -32,7 +32,6 @@ seeded from mesmo's result).
 
 - [Getting started](#getting-started)
 - [Usage](#usage)
-- [Testing without Sniper](#testing-without-sniper)
 - [Running on Titan (HPC)](#running-on-titan-hpc)
 
 ---
@@ -195,21 +194,6 @@ Under `--outputdir`:
 resumable ordinary run of that strategy (so one phase's checkpoint can't
 overwrite the other's).
 
-## Testing without Sniper
-
-**File:** `tests/test.py`. Exercises `greedy.py`'s sensitivity/freezing
-logic against a synthetic, seeded stand-in for Sniper — no simulator needed,
-runs in seconds.
-
-```bash
-python3 asi/tests/test.py
-```
-
-The synthetic model's ground truth (which parameters "really" matter) is
-known up front, so the printed final Pareto front can be checked by eye:
-real-effect parameters stay active, null ones freeze within the first
-couple of iterations.
-
 ## Running on Titan (HPC)
 
 ### Why
@@ -242,8 +226,7 @@ automatically — you don't normally touch `titan_controller` directly.
        Port <port, if non-standard>
        IdentityFile ~/.ssh/<your-jump-key>
    ```
-   Test with `ssh titan`. Prompted for a password on *every* command later
-   (not just once)? Add connection multiplexing to both blocks above
+   Test with `ssh titan`. Add connection multiplexing to both blocks above so no passwprd is needed all the time
    (`mkdir -p ~/.ssh/controlmasters` first):
    ```
        ControlMaster auto
@@ -268,7 +251,7 @@ automatically — you don't normally touch `titan_controller` directly.
 **this project doesn't use that** — compute nodes don't share a filesystem
 with the login node or each other (a checkout done via `ssh titan` is
 invisible to the actual job), and the shared lab checkouts don't have this
-project's branches (one was found corrupted, too). Instead, plain files are
+project's branches. Instead, plain files are
 mounted directly via `vm_mount`, pointed at a location confirmed shared
 across every node:
 ```json
@@ -396,7 +379,7 @@ tar cf - --exclude='.git' . | ssh titan "tar xf - -C /mnt/perflab/exascience/src
 ```
 Or `scp` a single changed file directly if that's all that changed.
 
-### The `--titan` flag (spea2 only)
+### The `--titan` flag
 
 `asi/asi_framework/titan_batch.py` drives `titan_controller` directly, no
 new `titan_controller` feature needed. `--titan --titan-benchmark-json
@@ -426,27 +409,4 @@ locally; without it, `spea2` behaves exactly as before.
 - Results are parsed with the same `runner.parse_sniper_output()` a local
   run uses — Titan and local points are interchangeable in `global_cache`.
 
-### Troubleshooting
 
-- **`Experiment is already fully done, nothing to do`** — not an error, a
-  cache hit (see above); the exact config was already computed, maybe by an
-  unrelated experiment.
-- **Password prompt on every command** — set up SSH multiplexing (see
-  [One-time setup](#one-time-setup)).
-- **Job fails near-instantly (<10s)** — check
-  `stderr_<jobid>_<task>.txt` in the result tarball for a git-branch
-  mismatch; only relevant if using the git-checkout convention instead of
-  `vm_mount`.
-- **Job runs minutes then "did not pass the tests"** — build failed on the
-  compute node; check `make_sniper.err`/`make_benchmarks.err`/`stderr_vm.txt`
-  in the tarball.
-- **`--delete job` says "Cannot remove a job using this account!"** — needs
-  a privileged account this project doesn't have. Cancel directly:
-  `ssh titan "scancel <jobid>"`.
-- **See what a compute node actually sees** (not the login node):
-  ```bash
-  ssh titan "srun --nodelist=titan01 --qos=batch_qos --partition=batch --time=00:01:00 bash -c '<command>'"
-  ```
-- **Full local reset** if something looks stuck/corrupted:
-  `rm -rf ~/.cache/titan_controller/` — purely local, affects no running
-  jobs, everything regenerates (just without prior cached results).
