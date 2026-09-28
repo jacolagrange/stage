@@ -252,7 +252,7 @@ automatically — you don't normally touch `titan_controller` directly.
 **this project doesn't use that** — compute nodes don't share a filesystem
 with the login node or each other (a checkout done via `ssh titan` is
 invisible to the actual job), and the shared lab checkouts don't have this
-project's branches (one was found corrupted, too). Instead, plain files are
+project's branches. Instead, plain files are
 mounted directly via `vm_mount`, pointed at a location confirmed shared
 across every node:
 ```json
