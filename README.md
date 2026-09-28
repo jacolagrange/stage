@@ -227,8 +227,7 @@ automatically — you don't normally touch `titan_controller` directly.
        Port <port, if non-standard>
        IdentityFile ~/.ssh/<your-jump-key>
    ```
-   Test with `ssh titan`. Prompted for a password on *every* command later
-   (not just once)? Add connection multiplexing to both blocks above
+   Test with `ssh titan`. Add connection multiplexing to both blocks above so no passwprd is needed all the time
    (`mkdir -p ~/.ssh/controlmasters` first):
    ```
        ControlMaster auto
