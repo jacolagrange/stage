@@ -380,7 +380,7 @@ tar cf - --exclude='.git' . | ssh titan "tar xf - -C /mnt/perflab/exascience/src
 ```
 Or `scp` a single changed file directly if that's all that changed.
 
-### The `--titan` flag (spea2 only)
+### The `--titan` flag
 
 `asi/asi_framework/titan_batch.py` drives `titan_controller` directly, no
 new `titan_controller` feature needed. `--titan --titan-benchmark-json
